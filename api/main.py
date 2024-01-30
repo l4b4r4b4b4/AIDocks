@@ -10,6 +10,9 @@ import json
 import subprocess
 import os
 from enum import Enum
+from huggingface_hub import create_repo
+from huggingface_hub import login
+from huggingface_hub import HfApi
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -27,7 +30,7 @@ app = FastAPI(
 
 
 @app.get("/")
-async def get_root():
+async def health():
     ic("GET /")
     return {"msg": "This is AIDocks https://github.com/l4b4r4b4b4/ai-docks"}
 
@@ -40,10 +43,9 @@ class ModelType(str, Enum):
 @app.get("/models/{model_type}")
 async def get_models(model_type: ModelType):
     if model_type == "base":
-        base_path = "app/models"
-
-    elif model_type == "local":
         base_path = "/.hf-cache/hub"
+    elif model_type == "local":
+        base_path = "models"
     else:
         return {"models": "Error"}
 
@@ -56,7 +58,7 @@ async def get_models(model_type: ModelType):
 
 
 @app.get("/datasets")
-async def get_models():
+async def get_datasets():
     base_path = "/.hf-cache/datasets"
     datasets = [
         name
@@ -81,8 +83,6 @@ class LaserInput(BaseModel):
         "ptb",
     ]
     seq_len: Optional[int] = 256
-    publish: Optional[bool] = False
-    trainer: Optional[str] = "LHC88"
 
 
 @app.post("/laser/")
@@ -232,3 +232,46 @@ async def byo_moe(request_body: BYOMoEInput):
         print(f"An error occurred: {repr(error)}")
     else:
         print(output.decode())
+
+
+class PublishInput(BaseModel):
+    local_model_name: str = "TinyLlama-ClownCar"
+    pub_model_name: str = "TinyLlama-ClownCar"
+    trainer: str = "LHC88"
+
+
+@app.post("/publish")
+async def publish_endpoint(
+    request_body: PublishInput, background_tasks: BackgroundTasks
+):
+    background_tasks.add_task(run_publish, request_body)
+    return {"message": "Laser is running in the background ..."}
+
+
+def run_publish(input: PublishInput):
+    ic("Publishing to HF ...")
+    trainer = input.trainer
+    local_model_name = input.local_model_name
+    pub_model_name = input.pub_model_name
+    repo_id = f"{trainer}/{pub_model_name}"
+    try:
+        login(token=r"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")
+        try:
+            create_repo(repo_id)
+        except Exception as e:
+            raise e
+        else:
+            pass
+
+        api = HfApi()
+
+        api.upload_folder(
+            folder_path=f"models/{local_model_name}",
+            repo_id=repo_id,
+            repo_type="model",
+            revision="main",
+        )
+    except Exception as e:
+        ic(e)
+    else:
+        pass
