@@ -118,6 +118,37 @@ class BYOMoEConfig(BaseModel):
             ],
             negative_prompts=["chat" "questions"],
         ),
+        Expert(
+            source_model="azale-ai/Starstreak-7b-beta",
+            positive_prompts=["chat", "questions", "answer", "indonesian", "indonesia"],
+        ),
+        Expert(
+            source_model="azale-ai/Starstreak-7b-beta",
+            positive_prompts=["chat", "questions", "answer", "arabic", "arab"],
+        ),
+        Expert(
+            source_model="davidkim205/komt-mistral-7b-v1",
+            positive_prompts=["chat", "questions", "answer", "korean", "korea"],
+        ),
+        Expert(
+            source_model="OpenBuddy/openbuddy-zephyr-7b-v14.1",
+            positive_prompts=["chat", "questions", "answer", "chinese", "china"],
+        ),
+        Expert(
+            source_model="manishiitg/open-aditi-hi-v1",
+            positive_prompts=["chat", "questions", "answer", "hindi", "india"],
+        ),
+        Expert(
+            source_model="VAGOsolutions/SauerkrautLM-7b-v1-mistral",
+            positive_prompts=[
+                "chat",
+                "questions",
+                "answer",
+                "german",
+                "deutsch",
+                "Germany",
+            ],
+        ),
     ]
 
 
@@ -140,9 +171,7 @@ async def byo_moe(request_body: BYOMoEInput):
     json_config = request_body.config.json(exclude_none=True)
     config = json.loads(json_config)
     config_path = f"data/moe-configs/{request_body.moe_name}.yaml"
-    with open(
-        config_path, "w"
-    ) as outfile:
+    with open(config_path, "w") as outfile:
         yaml.dump(config, outfile, default_flow_style=False)
 
     command = str(f"mergekit-moe {config_path} models/{request_body.moe_name}")
@@ -153,4 +182,3 @@ async def byo_moe(request_body: BYOMoEInput):
         print(f"An error occurred: {repr(error)}")
     else:
         print(output.decode())
-        
