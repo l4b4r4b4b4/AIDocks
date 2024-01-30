@@ -1062,7 +1062,7 @@ async def compose(request_body: ComposeInput):
     with open(config_path, "w") as outfile:
         yaml.dump(config, outfile, default_flow_style=False)
 
-    command = str(f"mergekit-moe {config_path} models/{request_body.moe_name}")
+    command = str(f"mergekit-moe {config_path} models/llm/{request_body.moe_name}")
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
     output, error = process.communicate()
 
@@ -1175,8 +1175,10 @@ def run_quantization(input: QuantizeInput):
 
 
 class PublishInput(BaseModel):
+    local_model_type: str = "llm"
     local_model_name: str = "TinyLlama-ClownCar"
     pub_model_name: str = "TinyLlama-ClownCar"
+    revision_tag: Optional[str] = "main"
     trainer: str = "LHC88"
 
 
@@ -1190,8 +1192,11 @@ async def publish_endpoint(
 
 def run_publish(input: PublishInput):
     trainer = input.trainer
+    local_model_type = input.local_model_type
     local_model_name = input.local_model_name
     pub_model_name = input.pub_model_name
+    revision_tag = input.revision_tag
+    
     start_msg = str(
         f"Publishing {local_model_name} to HuggingFace Hub as {pub_model_name} ..."
     )
@@ -1204,18 +1209,18 @@ def run_publish(input: PublishInput):
         login(token=hf_token)
         try:
             create_repo(repo_id)
-        except Exception as e:
-            ic(e)
+        except Exception as create_repo_exception:
+            ic(create_repo_exception)
         else:
             pass
 
         api = HfApi()
 
         api.upload_folder(
-            folder_path=f"models/{local_model_name}",
+            folder_path=f"models/{local_model_type}/{local_model_name}",
             repo_id=repo_id,
             repo_type="model",
-            revision="main",
+            revision=revision_tag,
         )
     except Exception as e:
         ic(e)

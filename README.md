@@ -4,6 +4,7 @@ The AI Trainer's Dry Dock.
 
 **Features**
 - 🚀 Fine-Tune **E**mbeddings, **R**e**R**ankerings & **L**arge **L**anguage **M**odels (LLMs), 
+- 🚀 Dataset templates,
 - 🚀 Build-Your-Own Mixture-of-Experts (MoE),
 - 🚀 Optimize LLMs with LASER-Random Matrix Theory, 
 - 🚀 Quantize models for optimal model size &
