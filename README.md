@@ -13,6 +13,7 @@ The AI Trainer's Dry Dock.
 ## Roadmap
 (unsorted)
 
+- Auto Hardware Detection -> Model recommendation for fine-tuning and inference
 - Fine-tune other models with [axolotl](https://github.com/OpenAccess-AI-Collective/axolotl)
 - Combined LLM & retrieval model fine-tuning with human feedback
 - The Truth Tables: Distributed (private & shared) Knowledge/Document Management in Chroma over sup- and sub-domain graph in Neo4j.
