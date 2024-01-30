@@ -245,7 +245,7 @@ async def publish_endpoint(
     request_body: PublishInput, background_tasks: BackgroundTasks
 ):
     background_tasks.add_task(run_publish, request_body)
-    return {"message": "Laser is running in the background ..."}
+    return {"message": "Publishing is running in the background ..."}
 
 
 def run_publish(input: PublishInput):
@@ -259,7 +259,7 @@ def run_publish(input: PublishInput):
         try:
             create_repo(repo_id)
         except Exception as e:
-            raise e
+            ic(e)
         else:
             pass
 
