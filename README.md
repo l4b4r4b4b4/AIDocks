@@ -24,7 +24,8 @@ Go to the API [documentation](http://localhost:8723/docs) to check and try the f
 `request body`
 ```json
 {
-    "base_model_name" : "TinyLlama/TinyLlama-1.1B-Chat-v1.0","laser_model_name": "TinyLaser",
+    "base_model_name" : "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "laser_model_name": "TinyLaser",
     "top_k_layers": 15,
     "publish": false,
     "trainer": "LHC88"
