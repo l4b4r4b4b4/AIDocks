@@ -33,10 +33,8 @@ RUN apt-get remove -y git build-essential && \
     apt-get clean && \  
     rm -rf /var/lib/apt/lists/*
 
-# App Config
+# Application setup
 WORKDIR /app
-
-# Set up application
 COPY api ./api
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]  
