@@ -1,0 +1,46 @@
+version: "3.5"
+
+networks:
+  laser-net:
+    driver: bridge
+
+services:
+  laser-api-service:
+    volumes:
+      - ./api:/app/:rw
+      - hf-cache:/.hf-cache
+    deploy:
+      replicas: 1
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    runtime: nvidia
+    ipc: host
+    tty: true # enable colorized logs
+    env_file:
+      - .env
+    build:
+      context: ./
+    container_name: laser-api
+    ports:
+      - 8723:80
+    networks:
+      - laser-net
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "10"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://laser-api:80/"]
+      interval: 1m
+      timeout: 20m
+      retries: 20
+
+volumes:
+  hf-cache:
+    driver: local
