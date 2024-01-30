@@ -2,13 +2,26 @@
 
 The AI Trainer's Dry Dock.
 
-**Features**
+## Features
 - 🚀 Fine-Tune **E**mbeddings, **R**e**R**ankerings & **L**arge **L**anguage **M**odels (LLMs), 
 - 🚀 Dataset templates,
 - 🚀 Build-Your-Own Mixture-of-Experts (MoE),
 - 🚀 Optimize LLMs with LASER-Random Matrix Theory, 
 - 🚀 Quantize models for optimal model size &
 - 🚀 Publish models to 🤗 HuggingFace Hub.
+
+## Roadmap
+(unsorted)
+
+- Fine-tune other models with [axolotl](https://github.com/OpenAccess-AI-Collective/axolotl)
+- Combined LLM & Retrieval Fine-tune with human feedback
+- Model Conditioning: Chat-based domain-(field) expert  LLM alignment with human feedback on retrieval relevance, AI reasoning and conclusion.
+    - Memory & History
+    - Multiple Conversation
+    - Multiple human & AI participants
+    - General & Agent Specific Knowledge attachment by domain tags
+- The Truth Tables: Distributed Knowledge Management over persons & groups as well as sup- and sub-domains in a knowledge graph with Chroma and Neo4j.
+- AI Task Library
 
 **Disclaimer**
 In very early development stage. So feedback and contributions are highly appreciated!
@@ -64,17 +77,6 @@ Finetune Mistral, Llama 2-5x faster with 50% less memory with [unsloth](https://
 4. Works on Linux and Windows via WSL
 5. Download 4 bit models 4x faster from 🤗 Huggingface! Eg: unsloth/mistral-7b-bnb-4bit
 6. Supports 4bit and 16bit QLoRA / LoRA finetuning via bitsandbytes
-
-**Roadmap** (unsorted)
-- Fine-tune other models with [axolotl](https://github.com/OpenAccess-AI-Collective/axolotl)
-- Combined LLM & Retrieval Fine-tune with human feedback
-- Model Conditioning: Chat-based domain-(field) expert  LLM alignment with human feedback on retrieval relevance, AI reasoning and conclusion.
-    - Memory & History
-    - Multiple Conversation
-    - Multiple human & AI participants
-    - General & Agent Specific Knowledge attachment by domain tags
-- The Truth Tables: Distributed Knowledge Management over persons & groups as well as sup- and sub-domains in a knowledge graph with Chroma and Neo4j.
-- AI Task Library
 
 #### `/train/emb` Embeddings
 LoRA-PEFT for Embeddings using [peft](https://github.com/huggingface/peft) and [accelerate](https://github.com/huggingface/accelerate) library.
