@@ -1,29 +1,33 @@
-# TODO Can I build application but later run it with runtime base image 2.1.2-cuda12.1-cudnn8-runtime ?
 # Set base image (host OS)  
 FROM pytorch/pytorch:2.1.1-cuda12.1-cudnn8-devel
-# FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
+
+ENV PATH=/usr/local/cuda/:${PATH} 
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH  
+
+# Update system packages and install build dependencies
 RUN apt-get update && \      
     apt-get upgrade -y && \    
     apt-get install -y git build-essential  && \    
     apt-get clean    
-
+    
 RUN pip install packaging wheel
-
-# Install project-specific dependencies    
-COPY ./requirements ./requirements
-RUN cd requirements && \
-    python -m pip install -r laser.txt  && \     
-    python -m pip install -r app.txt
 
 # Install unsloth training framework
 RUN pip install --upgrade --force-reinstall --no-cache-dir torch==2.1.1 triton  \
     --index-url https://download.pytorch.org/whl/cu121
 RUN pip install "unsloth[cu121_ampere] @ git+https://github.com/unslothai/unsloth.git"  
 
+# Install project-specific dependencies    
+COPY ./requirements ./requirements
+RUN cd requirements && \
+    python -m pip install -r laser.txt
+
 # Install Mixtral MergeKit
 RUN git clone --branch mixtral https://github.com/cg123/mergekit.git && \
     cd mergekit && pip install -e .    
 
+RUN cd requirements && \
+    python -m pip install -r app.txt
 # Cleanup step  
 RUN apt-get remove -y git build-essential && \  
     apt-get autoremove -y && \  

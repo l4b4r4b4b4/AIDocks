@@ -17,35 +17,30 @@ docker-compose ps && \
 docker-compose logs -f
 ```
 
-Go to the API [documentation](http://localhost:8723/docs) to check and try the features and build your own MoE-model right now!
+Go to the API [documentation](http://localhost:8723/docs) to check and try the available features!
 
 ## Endpoints 🚀
-### `/laser` - LaserRMT 
-[Try API endpoint](http://localhost:8723/docs#/default/laser_llm_laser__post)
-`request body`
-```json
-{
-    "base_model_name" : "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-    "laser_model_name": "TinyLaser",
-    "top_k_layers": 15,
-    "publish": false,
-    "trainer": "LHC88"
-    
-}
-```
-LaserRMT optimizes LLMs combining Layer-Selective Rank Reduction (LASER) and the Marchenko-Pastur law from Random Matrix Theory. This method targets model complexity reduction while maintaining or enhancing performance, making it more efficient than the traditional brute-force search method.
+### `/train` Training & Fine-Tuning
+#### `/train/llm` Optimized LLM fine-tuning (DPO & SFT) with `unsloth`
+[Try API endpoint](http://localhost:8723/docs#/default/traing_llm__post)
 
-1. LASER Framework Adaptation: LaserRMT adapts the LASER technique, which reduces the complexity of neural networks by selectively pruning the weights of a model's layers.
-2. Marchenko-Pastur Law Integration: The Marchenko-Pastur law, a concept from Random Matrix Theory used to determine the distribution of eigenvalues in large random matrices, guides the identification of redundant components in LLMs. This allows for effective complexity reduction without loss of key information.
-3. Enhanced Model Performance: By systematically identifying and eliminating less important components in the model's layers, LaserRMT can potentially enhance the model's performance and interpretability.
-4. Efficient Optimization Process: LaserRMT provides a more efficient and theoretically robust framework for optimizing large-scale language models, setting a new standard for language model refinement.
+Example datasets when using ChatML for
+1. [SFT](./example-datasets/llm/chatml/sft.jsonl) &
+2. [DPO](./example-datasets/llm/chatml/dpo.jsonl).
 
-This approach opens new avenues for optimizing neural networks, underscoring the synergy between advanced mathematical theories and practical AI applications. LaserRMT sets a precedent for future developments in the field of LLM optimization.
+#### `/train/emb` LoRA-PEFT for Embeddings
+Including JinaAI!
 
-### `/byo-moe` - BYO-MoE
+Feature coming soon!
+
+#### `/train/rerank` ReRanker fine-tuning
+
+Feature coming soon!
+
+### `/compose` - BYO-MoE
 [Try API endpoint](http://localhost:8723/docs#/default/build_your_own_mixture_of_experts_byo_moe__post)
 
-`/byo-moe` is an endpoint for combining Mistral or Llama models of the same size into Mixtral Mixture of Experts models. The endpoint will combine the self-attention and layer normalization parameters from a "base" model with the MLP parameters from a set of "expert" models. `/byo-moe` uses its own JSON configuration syntax, which looks like so:
+`/compose` is an endpoint for combining Mistral or Llama models of the same size into Mixtral Mixture of Experts models. The endpoint will combine the self-attention and layer normalization parameters from a "base" model with the MLP parameters from a set of "expert" models. `/compose` uses its own JSON configuration syntax, which looks like so:
 `request body`
 ```json
 {
@@ -104,33 +99,40 @@ Uses only the raw token embedding of the prompts, using the same gate parameters
 
 Randomly initializes the MoE gates. Good for if you are going to fine tune the model afterwards, or maybe if you want something a little unhinged? I won't judge.
 
-### `/train/llm` Optimized LLM fine-tuning (DPO & SFT) with `unsloth`
-Documentation coming soon!
+### `/optimize` - LaserRMT 
+[Try API endpoint](http://localhost:8723/docs#/default/laser_llm_laser__post)
+`request body`
+```json
+{
+    "base_model_name" : "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "laser_model_name": "TinyLaser",
+    "top_k_layers": 15,
+    "publish": false,
+    "trainer": "LHC88"
+    
+}
+```
+LaserRMT optimizes LLMs combining Layer-Selective Rank Reduction (LASER) and the Marchenko-Pastur law from Random Matrix Theory. This method targets model complexity reduction while maintaining or enhancing performance, making it more efficient than the traditional brute-force search method.
 
-### `/train/emb` LoRA-PEFT for Embeddings
-Including JinaAI!
+1. LASER Framework Adaptation: LaserRMT adapts the LASER technique, which reduces the complexity of neural networks by selectively pruning the weights of a model's layers.
+2. Marchenko-Pastur Law Integration: The Marchenko-Pastur law, a concept from Random Matrix Theory used to determine the distribution of eigenvalues in large random matrices, guides the identification of redundant components in LLMs. This allows for effective complexity reduction without loss of key information.
+3. Enhanced Model Performance: By systematically identifying and eliminating less important components in the model's layers, LaserRMT can potentially enhance the model's performance and interpretability.
+4. Efficient Optimization Process: LaserRMT provides a more efficient and theoretically robust framework for optimizing large-scale language models, setting a new standard for language model refinement.
 
-Feature coming soon!
-
-### `/train/rerank` ReRanker fine-tuning
-
-Feature coming soon!
+This approach opens new avenues for optimizing neural networks, underscoring the synergy between advanced mathematical theories and practical AI applications. LaserRMT sets a precedent for future developments in the field of LLM optimization.
 
 ### `/quantize/{method}`
-
+[Try API endpoint](http://localhost:8723/docs#/default/quantize__post)
 #### AWQ
-
-#### GPTQ
-Feature coming soon!
-
-### GGUF
-Feature coming soon!
+Generate AWQ-quantizations optimized for GPU-inference.
 
 ### `/publish` to HuggingFace 🤗
 
 [Try API endpoint](http://localhost:8723/docs#/default/publish_endpoint_publish_post)
 
 ## Explaining Resources
+Some explaining resources for concepts, technologies and tools used in this repository!
+
 1. [MergeKit Mixtral](https://github.com/cg123/mergekit/tree/mixtral)
 2. [Mixture of Experts for Clowns (at a Circus)](https://goddard.blog/posts/clown-moe/#fn-mlp)
 3. [Fernando Fernandes Neto, David Golchinfar and Eric Hartford. "Optimizing Large Language Models Using Layer-Selective Rank Reduction and Random Matrix Theory." 2024.](https://github.com/cognitivecomputations/laserRMT)
