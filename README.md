@@ -1,6 +1,6 @@
 # AIDocks
 
-A micro-service for optimizing, training, fine-tuning and merging **L**arge **L**anguage **M**odels (LLMs) & Build your own: Mixture-of-Experts (MoE) models.
+A micro-service to Build-Your-Own Mixture-of-Experts (MoE) models, LaserRMT optimization & fine-tuning **L**arge **L**anguage, Embeddings & ReRanking **M**odels.
 
 ## Pre-Requisites
 0. Git
