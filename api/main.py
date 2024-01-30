@@ -192,6 +192,7 @@ async def training_endpoint(
             background_tasks.add_task(run_dpo_training, request_body)
         elif train_method == "sft":
             background_tasks.add_task(run_sft_training, request_body)
+    # TODO combined retrieval & generation fine-tuning 
     return {"message": "Training is running in the background ..."}
 
 
