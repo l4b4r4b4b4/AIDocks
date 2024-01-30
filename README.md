@@ -67,13 +67,14 @@ Finetune Mistral, Llama 2-5x faster with 50% less memory with [unsloth](https://
 
 **Roadmap** (unsorted)
 - Fine-tune other models with [axolotl](https://github.com/OpenAccess-AI-Collective/axolotl)
+- Combined LLM & Retrieval Fine-tune with human feedback
 - Model Conditioning: Chat-based domain-(field) expert  LLM alignment with human feedback on retrieval relevance, AI reasoning and conclusion.
     - Memory & History
     - Multiple Conversation
     - Multiple human & AI participants
     - General & Agent Specific Knowledge attachment by domain tags
 - The Truth Tables: Distributed Knowledge Management over persons & groups as well as sup- and sub-domains in a knowledge graph with Chroma and Neo4j.
-
+- AI Task Library
 
 #### `/train/emb` Embeddings
 LoRA-PEFT for Embeddings using [peft](https://github.com/huggingface/peft) and [accelerate](https://github.com/huggingface/accelerate) library.
