@@ -14,13 +14,15 @@ The AI Trainer's Dry Dock.
 (unsorted)
 
 - Fine-tune other models with [axolotl](https://github.com/OpenAccess-AI-Collective/axolotl)
-- Combined LLM & Retrieval Fine-tune with human feedback
-- Model Conditioning: Chat-based domain-(field) expert  LLM alignment with human feedback on retrieval relevance, AI reasoning and conclusion.
+- Combined LLM & retrieval model fine-tuning with human feedback
+- The Truth Tables: Distributed (private & shared) Knowledge/Document Management in Chroma over sup- and sub-domain graph in Neo4j.
+- Model Conditioning: Chat-based LLM alignment for domain-(field) expertise with auto & human scoring on retrieval relevance, AI reasoning & conclusion.
     - Memory & History
+    - Domain specific knowledge retrieval & expert prompting
     - Multiple Conversation
     - Multiple human & AI participants
     - General & Agent Specific Knowledge attachment by domain tags
-- The Truth Tables: Distributed Knowledge Management over persons & groups as well as sup- and sub-domains in a knowledge graph with Chroma and Neo4j.
+    - Auto & Human eval for retrieval, reasoning & conclusion results
 - AI Task Library
 
 **Disclaimer**
