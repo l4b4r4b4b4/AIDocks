@@ -78,7 +78,7 @@ class Method(str, Enum):
 
 class LLMTrainingInput(BaseModel):
     base_model_name: str = "TinyLlama-ClownCar"
-    peft_model_name: str = "TinyLlama-ClownCar"
+    peft_model_name: str = "TinyLlama-SpecialClownCar"
     method: Method = Method.dpo
     config: TrainingConfig
 
