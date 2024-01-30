@@ -1,1 +1,0 @@
-{"prompt": "<|im_start|>system\n SYSTEM_INSTRUCTION \n<|im_end|>\n<|im_start|>user\n USER_MSG <|im_end|>\n<|im_start|>assistant\n", "chosen": "", "rejected": ""}

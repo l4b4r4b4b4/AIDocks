@@ -1,0 +1,17 @@
+[
+    {
+        "query": "Does the Context Information contain Sensitive Information on a person?",
+        "score": 1,
+        "content": "Personal Information Form\n\nFirst Name: William\nLast Name: Smith\n\nCurrent Occupation: Software Engineer\nEmployer: Tech Corp\nEducation: \nBachelor's Degree in Computer Science\nXYZ University, 2002\nAddress: \n1234 Main St.\nAnytown, USA\nContact Number:\n555-123-4567\nEmail: \njohndoe@example.com\n"
+    },
+    {
+        "query": "Does the Context Information contain Sensitive Information on a person?",
+        "score": 0,
+        "content": "But ye see, Sparklebeard, she be a curious beast. The moment we dropped anchor, she leapt into the sea and swam towards the island. By Davy Jones' locker, I couldn't leave her to face the unknown alone. So, I rallied me crew, and we set off after her."
+    },
+    {
+        "query": "Does the Context Information contain Sensitive Information on a person?",
+        "score": 0,
+        "content": "We found her in a glade, surrounded by a pack of vicious, snarling beasts. They were like nothing we'd ever seen afore - half dragon, half lion. But Sparklebeard, she wasn't afraid. She stood tall, her horn gleaming in the sun, ready to defend herself."
+    }
+]

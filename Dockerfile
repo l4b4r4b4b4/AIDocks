@@ -36,5 +36,8 @@ RUN apt-get remove -y git build-essential && \
 # Application setup
 WORKDIR /app
 COPY api ./api
+RUN mkdir -p models/llm && \
+    mkdir -p models/emb && \
+    mkdir -p models/rr
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]  

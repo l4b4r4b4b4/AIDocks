@@ -8,6 +8,9 @@ services:
   ai-docks-service:
     volumes:
       - ./api:/app/:rw
+      - ./api/models/emb:/app/models/emb:rw
+      - ./api/models/rr:/app/models/rr:rw
+      - ./api/models/llm:/app/models/llm:rw
       - hf-cache:/.hf-cache
     deploy:
       replicas: 1

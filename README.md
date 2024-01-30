@@ -1,6 +1,16 @@
 # AIDocks
 
-A micro-service to Build-Your-Own Mixture-of-Experts (MoE) models, LaserRMT optimization & fine-tuning **L**arge **L**anguage, Embeddings & ReRanking **M**odels.
+The AI Trainer's Dry Dock.
+
+**Features**
+- 🚀 Fine-Tune **E**mbeddings, **R**e**R**ankerings & **L**arge **L**anguage **M**odels (LLMs), 
+- 🚀 Build-Your-Own Mixture-of-Experts (MoE),
+- 🚀 Optimize LLMs with LASER-Random Matrix Theory, 
+- 🚀 Quantize models for optimal model size &
+- 🚀 Publish models to 🤗 HuggingFace Hub
+
+**Disclaimer**
+In very early development stage. So feedback and contributions are highly appreciated!
 
 ## Pre-Requisites
 0. CUDA-GPU
@@ -17,30 +27,76 @@ docker-compose ps && \
 docker-compose logs -f
 ```
 
-Go to the API [documentation](http://localhost:8723/docs) to check and try the available features!
+Go to the [interactive API documentation](http://localhost:8723/docs) to explore all available endpoints & features!
 
 ## Endpoints 🚀
+The following endpoints are exposed:
+1. `/train`
+2. `/compose`
+3. `/optimize`
+4. `/quantize`
+5. `/publish`
+
 ### `/train` Training & Fine-Tuning
-#### `/train/llm` Optimized LLM fine-tuning (DPO & SFT) with `unsloth`
+The training routes expose different endpoints to fine-tune embeddings or reranking models used for retrieval and LLMs.
+
+#### `/train/llm` LLM fine-tuning (DPO & SFT)
 [Try API endpoint](http://localhost:8723/docs#/default/traing_llm__post)
+Finetune Mistral, Llama 2-5x faster with 50% less memory with [unsloth](https://github.com/unslothai/unsloth)
 
-Example datasets when using ChatML for
-1. [SFT](./example-datasets/llm/chatml/sft.jsonl) &
-2. [DPO](./example-datasets/llm/chatml/dpo.jsonl).
+**Example datasets** when using ChatML for
+1. [SFT](./api/examples/llm/chatml/sft.jsonl) &
+2. [DPO](./api/examples/llm/chatml/dpo.jsonl).
 
-#### `/train/emb` LoRA-PEFT for Embeddings
-Including JinaAI!
+**Supported Models**
+- Llama,
+- Yi,
+- Mistral,
+- CodeLlama,
+- Qwen (llamafied),
+- Deepseek and their derived models (Open Hermes etc).
 
-Feature coming soon!
+**Features**
+1. All kernels written in OpenAI's Triton language. Manual backprop engine.
+2. 0% loss in accuracy - no approximation methods - all exact.
+3. No change of hardware. Supports NVIDIA GPUs since 2018+. Minimum CUDA Capability 7.0 (V100, T4, Titan V, RTX 20, 30, 40x, A100, H100, L40 etc) Check your GPU! GTX 1070, 1080 works, but is slow.
+4. Works on Linux and Windows via WSL.
+5. Download 4 bit models 4x faster from 🤗 Huggingface! Eg: unsloth/mistral-7b-bnb-4bit
+6. Supports 4bit and 16bit QLoRA / LoRA finetuning via bitsandbytes.
 
-#### `/train/rerank` ReRanker fine-tuning
+**Coming Soon** Fine-tuning other models with [axolotl](https://github.com/OpenAccess-AI-Collective/axolotl)
 
-Feature coming soon!
+#### `/train/emb` Embeddings
+LoRA-PEFT for Embeddings using [peft](https://github.com/huggingface/peft) and [accelerate](https://github.com/huggingface/accelerate) library.
+
+**Supported Models**
+- Theoretically any [HuggingFace embeddings model](https://huggingface.co/spaces/mteb/leaderboard).
+- Some Models like [jina-embeddings-v2-base-en](https://huggingface.co/jinaai/jina-embeddings-v2-base-en) need a set HuggingFace Access Key with read permission.
+
+**Example datasets**
+- [Train](./api/examples/emb/binary/train.json)
+- [Eval](./api/examples/emb/binary/eval.json)
+
+#### `/train/rerank` ReRankerings
+
+LoRA-PEFT for re-ranking models.
+
+**Supported Models**
+- bge-reranker using [FlagEmbedding](https://github.com/FlagOpen/FlagEmbedding/tree/master/FlagEmbedding/reranker) or
+- Any [HuggingFace embeddings model](https://huggingface.co/spaces/mteb/leaderboard).
+
+**Example datasets**
+- [bge-reranker](./api/examples/rr/bge-reranker.jsonl)
+- [embeddings](./api/examples/emb/binary/train.json)
 
 ### `/compose` - BYO-MoE
 [Try API endpoint](http://localhost:8723/docs#/default/build_your_own_mixture_of_experts_byo_moe__post)
 
-`/compose` is an endpoint for combining Mistral or Llama models of the same size into Mixtral Mixture of Experts models. The endpoint will combine the self-attention and layer normalization parameters from a "base" model with the MLP parameters from a set of "expert" models. `/compose` uses its own JSON configuration syntax, which looks like so:
+`/compose` is an endpoint for combining Mistral or Llama models of the same size into Mixture-of-Experts models. The endpoint will combine the self-attention and layer normalization parameters from a "base" model with the MLP parameters from a set of "expert" models.
+
+`/compose` endpoint can be used with minimal or no GPU.
+
+`/compose` endpoint uses its own JSON configuration syntax, which looks like so:
 `request body`
 ```json
 {
@@ -106,10 +162,7 @@ Randomly initializes the MoE gates. Good for if you are going to fine tune the m
 {
     "base_model_name" : "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
     "laser_model_name": "TinyLaser",
-    "top_k_layers": 15,
-    "publish": false,
-    "trainer": "LHC88"
-    
+    "top_k_layers": 15
 }
 ```
 LaserRMT optimizes LLMs combining Layer-Selective Rank Reduction (LASER) and the Marchenko-Pastur law from Random Matrix Theory. This method targets model complexity reduction while maintaining or enhancing performance, making it more efficient than the traditional brute-force search method.
@@ -129,9 +182,10 @@ Generate AWQ-quantizations optimized for GPU-inference.
 ### `/publish` to HuggingFace 🤗
 
 [Try API endpoint](http://localhost:8723/docs#/default/publish_endpoint_publish_post)
+Publish generated local models to 🤗 HuggingFace Hub.
 
 ## Explaining Resources
-Some explaining resources for concepts, technologies and tools used in this repository!
+Some explaining resources for concepts, technologies and tools used in this repository.
 
 1. [MergeKit Mixtral](https://github.com/cg123/mergekit/tree/mixtral)
 2. [Mixture of Experts for Clowns (at a Circus)](https://goddard.blog/posts/clown-moe/#fn-mlp)

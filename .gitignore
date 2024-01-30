@@ -1,7 +1,7 @@
 # .gitignore
 archive
-models
-data
+models/
+data/
 # VSCode
 .vscode
 # Python files
