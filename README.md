@@ -90,7 +90,9 @@ There are three methods for populating the MoE gates implemented.
 
 ##### "hidden"
 
-Uses the hidden state representations of the positive/negative prompts for MoE gate parameters. Best quality and most effective option; the default. Requires evaluating each prompt using the base model so you might not be able to use this on constrained hardware (depending on the model). You can use `--load-in-8bit` or `--load-in-4bit` to reduce VRAM usage.
+Uses the hidden state representations of the positive/negative prompts for MoE gate parameters. Best quality and most effective option; the default. Requires evaluating each prompt using the base model so you might not be able to use this on constrained hardware (depending on the model). 
+
+Coming Soon: use `--load-in-8bit` or `--load-in-4bit` to reduce VRAM usage.
 
 ##### "cheap_embed"
 
