@@ -7,7 +7,7 @@ The AI Trainer's Dry Dock.
 - 🚀 Build-Your-Own Mixture-of-Experts (MoE),
 - 🚀 Optimize LLMs with LASER-Random Matrix Theory, 
 - 🚀 Quantize models for optimal model size &
-- 🚀 Publish models to 🤗 HuggingFace Hub
+- 🚀 Publish models to 🤗 HuggingFace Hub.
 
 **Disclaimer**
 In very early development stage. So feedback and contributions are highly appreciated!
@@ -45,8 +45,8 @@ The training routes expose different endpoints to fine-tune embeddings or rerank
 Finetune Mistral, Llama 2-5x faster with 50% less memory with [unsloth](https://github.com/unslothai/unsloth)
 
 **Example datasets** when using ChatML for
-1. [SFT](./api/examples/llm/chatml/sft.jsonl) &
-2. [DPO](./api/examples/llm/chatml/dpo.jsonl).
+1. [SFT](./api/examples/llm/chatml/sft.jsonl)
+2. [DPO](./api/examples/llm/chatml/dpo.jsonl)
 
 **Supported Models**
 - Llama,
@@ -57,14 +57,14 @@ Finetune Mistral, Llama 2-5x faster with 50% less memory with [unsloth](https://
 - Deepseek and their derived models (Open Hermes etc).
 
 **Features**
-1. All kernels written in OpenAI's Triton language. Manual backprop engine.
-2. 0% loss in accuracy - no approximation methods - all exact.
-3. No change of hardware. Supports NVIDIA GPUs since 2018+. Minimum CUDA Capability 7.0 (V100, T4, Titan V, RTX 20, 30, 40x, A100, H100, L40 etc) Check your GPU! GTX 1070, 1080 works, but is slow.
-4. Works on Linux and Windows via WSL.
+1. All kernels written in OpenAI's Triton language. Manual backprop engine
+2. 0% loss in accuracy - no approximation methods - all exact
+3. No change of hardware. Supports NVIDIA GPUs since 2018+. Minimum CUDA Capability 7.0 (V100, T4, Titan V, RTX 20, 30, 40x, A100, H100, L40 etc) Check your GPU! GTX 1070, 1080 works, but is slow
+4. Works on Linux and Windows via WSL
 5. Download 4 bit models 4x faster from 🤗 Huggingface! Eg: unsloth/mistral-7b-bnb-4bit
-6. Supports 4bit and 16bit QLoRA / LoRA finetuning via bitsandbytes.
+6. Supports 4bit and 16bit QLoRA / LoRA finetuning via bitsandbytes
 
-**Coming Soon** Fine-tuning other models with [axolotl](https://github.com/OpenAccess-AI-Collective/axolotl)
+**Coming Soon** Fine-tune other models with [axolotl](https://github.com/OpenAccess-AI-Collective/axolotl)
 
 #### `/train/emb` Embeddings
 LoRA-PEFT for Embeddings using [peft](https://github.com/huggingface/peft) and [accelerate](https://github.com/huggingface/accelerate) library.
