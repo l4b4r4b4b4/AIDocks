@@ -21,6 +21,7 @@ Go to the API [documentation](http://localhost:8723/docs) to check and try the f
 
 ## Endpoints 🚀
 ### `/laser` - LaserRMT 
+[Try API endpoint](http://localhost:8723/docs#/default/laser_llm_laser__post)
 `request body`
 ```json
 {
@@ -42,6 +43,7 @@ LaserRMT optimizes LLMs combining Layer-Selective Rank Reduction (LASER) and the
 This approach opens new avenues for optimizing neural networks, underscoring the synergy between advanced mathematical theories and practical AI applications. LaserRMT sets a precedent for future developments in the field of LLM optimization.
 
 ### `/byo-moe` - BYO-MoE
+[Try API endpoint](http://localhost:8723/docs#/default/build_your_own_mixture_of_experts_byo_moe__post)
 
 `/byo-moe` is an endpoint for combining Mistral or Llama models of the same size into Mixtral Mixture of Experts models. The endpoint will combine the self-attention and layer normalization parameters from a "base" model with the MLP parameters from a set of "expert" models. `/byo-moe` uses its own JSON configuration syntax, which looks like so:
 `request body`
@@ -101,6 +103,10 @@ Uses only the raw token embedding of the prompts, using the same gate parameters
 ##### "random"
 
 Randomly initializes the MoE gates. Good for if you are going to fine tune the model afterwards, or maybe if you want something a little unhinged? I won't judge.
+
+### `/publish` to HuggingFace 🤗
+
+[Try API endpoint](http://localhost:8723/docs#/default/publish_endpoint_publish_post)
 
 ### `/train/llm` Optimized LLM fine-tuning (DPO & SFT) with `unsloth`
 Coming soon ...

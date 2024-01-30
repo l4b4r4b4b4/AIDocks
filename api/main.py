@@ -34,40 +34,6 @@ async def health():
     ic("GET /")
     return {"msg": "This is AIDocks https://github.com/l4b4r4b4b4/ai-docks"}
 
-
-class ModelType(str, Enum):
-    base = "base"
-    local = "local"
-
-
-@app.get("/models/{model_type}")
-async def get_models(model_type: ModelType):
-    if model_type == "base":
-        base_path = "/.hf-cache/hub"
-    elif model_type == "local":
-        base_path = "models"
-    else:
-        return {"models": "Error"}
-
-    models = [
-        name.lstrip("models--")
-        for name in os.listdir(base_path)
-        if os.path.isdir(os.path.join(base_path, name))
-    ]
-    return {"models": models}
-
-
-@app.get("/datasets")
-async def get_datasets():
-    base_path = "/.hf-cache/datasets"
-    datasets = [
-        name
-        for name in os.listdir(base_path)
-        if os.path.isdir(os.path.join(base_path, name))
-    ]
-    return {"datasets": datasets}
-
-
 class LaserInput(BaseModel):
     base_model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     laser_model_name: str = "TinyLlama-1.1B-Chat-v1.0-Laser"
@@ -232,6 +198,39 @@ async def byo_moe(request_body: BYOMoEInput):
         print(f"An error occurred: {repr(error)}")
     else:
         print(output.decode())
+
+
+
+class ModelType(str, Enum):
+    base = "base"
+    local = "local"
+
+
+@app.get("/models/{model_type}")
+async def get_models(model_type: ModelType):
+    if model_type == "base":
+        base_path = "/.hf-cache/hub"
+    elif model_type == "local":
+        base_path = "models"
+    else:
+        return {"models": "Error"}
+
+    models = [
+        name.lstrip("models--")
+        for name in os.listdir(base_path)
+        if os.path.isdir(os.path.join(base_path, name))
+    ]
+    return {"models": models}
+
+@app.get("/datasets")
+async def get_datasets():
+    base_path = "/.hf-cache/datasets"
+    datasets = [
+        name
+        for name in os.listdir(base_path)
+        if os.path.isdir(os.path.join(base_path, name))
+    ]
+    return {"datasets": datasets}
 
 
 class PublishInput(BaseModel):
