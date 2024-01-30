@@ -3,7 +3,7 @@
 A micro-service to Build-Your-Own Mixture-of-Experts (MoE) models, LaserRMT optimization & fine-tuning **L**arge **L**anguage, Embeddings & ReRanking **M**odels.
 
 ## Pre-Requisites
-0. Git
+0. CUDA-GPU
 1. [Docker](https://docs.docker.com/get-docker/) & [docker-compose](https://docs.docker.com/compose/install/linux/)
 2. [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 

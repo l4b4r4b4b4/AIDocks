@@ -12,6 +12,7 @@ peft
 trl
 accelerate
 autoawq
+transformers>=4.37.2
 # optimum
 # bitsandbytes
 # sentencepiece 
