@@ -19,7 +19,7 @@ else:
 
 app = FastAPI(
     title="AIDocks",
-    description="LLM-Training-API: Including Embeddings & ReRankers, mergekit, LaserRMT",
+    description="Build your Own: Mixture-of-Experts (MoE) models, Laser-optimize your LLMs, fine-tune Embeddings & ReRanking models",
     version="0.0.1",
 )
 
