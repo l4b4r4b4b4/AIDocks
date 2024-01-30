@@ -10,8 +10,8 @@ A micro-service to Build-Your-Own Mixture-of-Experts (MoE) models, LaserRMT opti
 ## Quick Start
 
 ```bash
-git clone https://github.com/l4b4r4b4b4/laser-api
-cd laser-api
+git clone https://github.com/l4b4r4b4b4/AIDocks
+cd AIDocks
 docker-compose up -d && \
 docker-compose ps && \
 docker-compose logs -f
