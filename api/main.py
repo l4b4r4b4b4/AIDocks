@@ -254,8 +254,12 @@ def run_publish(input: PublishInput):
     local_model_name = input.local_model_name
     pub_model_name = input.pub_model_name
     repo_id = f"{trainer}/{pub_model_name}"
+    hf_token = os.getenv('HUGGINGFACEHUB_API_TOKEN')
+    if hf_token is None:
+        raise ValueError("Environment variable HUGGINGFACEHUB_API_TOKEN is not set")
     try:
-        login(token=r"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")
+
+        login(token=hf_token)
         try:
             create_repo(repo_id)
         except Exception as e:
