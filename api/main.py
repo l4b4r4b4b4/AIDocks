@@ -169,7 +169,7 @@ class BYOMoEConfig(BaseModel):
 
 
 class BYOMoEInput(BaseModel):
-    moe_name: str = "TinyLlama-ClownCar"
+    moe_name: str = "MultiLang-Mistral-ClownCar"
     config: BYOMoEConfig
 
 
