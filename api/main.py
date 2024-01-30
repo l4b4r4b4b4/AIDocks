@@ -8,6 +8,8 @@ from enum import Enum
 import yaml
 import json
 import subprocess
+import os
+from enum import Enum
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -30,10 +32,55 @@ async def get_root():
     return {"msg": "This is AIDocks https://github.com/l4b4r4b4b4/ai-docks"}
 
 
+class ModelType(str, Enum):
+    base = "base"
+    local = "local"
+
+
+@app.get("/models/{model_type}")
+async def get_models(model_type: ModelType):
+    if model_type == "base":
+        base_path = "app/models"
+
+    elif model_type == "local":
+        base_path = "/.hf-cache/hub"
+    else:
+        return {"models": "Error"}
+
+    models = [
+        name.lstrip("models--")
+        for name in os.listdir(base_path)
+        if os.path.isdir(os.path.join(base_path, name))
+    ]
+    return {"models": models}
+
+
+@app.get("/datasets")
+async def get_models():
+    base_path = "/.hf-cache/datasets"
+    datasets = [
+        name
+        for name in os.listdir(base_path)
+        if os.path.isdir(os.path.join(base_path, name))
+    ]
+    return {"datasets": datasets}
+
+
 class LaserInput(BaseModel):
     base_model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     laser_model_name: str = "TinyLlama-1.1B-Chat-v1.0-Laser"
     top_k_layers: Optional[int] = 15
+    benchmark_datasets: Optional[List[str]] = [
+        "gsm8k",
+        "mmlu",
+        "winogrande",
+        "arc_challenge",
+        "hellaswag",
+        "truthfulqa_mc2",
+        "wikitext2",
+        "ptb",
+    ]
+    seq_len: Optional[int] = 256
     publish: Optional[bool] = False
     trainer: Optional[str] = "LHC88"
 
@@ -47,8 +94,11 @@ async def laser_llm(request_body: LaserInput, background_tasks: BackgroundTasks)
 async def run_laser(request_body: LaserInput):
     base_model_name = request_body.base_model_name
     laser_model_name = request_body.laser_model_name
-    ic("Laser Model")
-    modifier = ModelModifier(base_model_name)
+    benchmark_datasets = request_body.benchmark_datasets
+    seq_len = request_body.seq_len
+    modifier = ModelModifier(
+        base_model_name, datasets=benchmark_datasets, seq_len=seq_len
+    )
 
     layer_numbers = list(range(31, -1, -1))
     layer_numbers = [f".{l}." for l in layer_numbers]

@@ -25,8 +25,10 @@ Go to the API [documentation](http://localhost:8723/docs) to check and try the f
 ```json
 {
     "base_model_name" : "TinyLlama/TinyLlama-1.1B-Chat-v1.0","laser_model_name": "TinyLaser",
+    "top_k_layers": 15,
     "publish": false,
     "trainer": "LHC88"
+    
 }
 ```
 LaserRMT optimizes LLMs combining Layer-Selective Rank Reduction (LASER) and the Marchenko-Pastur law from Random Matrix Theory. This method targets model complexity reduction while maintaining or enhancing performance, making it more efficient than the traditional brute-force search method.
