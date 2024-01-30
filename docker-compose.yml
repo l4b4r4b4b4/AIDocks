@@ -1,11 +1,11 @@
 version: "3.5"
 
 networks:
-  laser-net:
+  ai-docks-net:
     driver: bridge
 
 services:
-  laser-api-service:
+  ai-docks-service:
     volumes:
       - ./api:/app/:rw
       - hf-cache:/.hf-cache
@@ -23,12 +23,12 @@ services:
     env_file:
       - .env
     build:
-      context: ./
-    container_name: laser-api
+      context: .
+    container_name: ai-docks
     ports:
       - 8723:80
     networks:
-      - laser-net
+      - ai-docks-net
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
     logging:
@@ -36,7 +36,7 @@ services:
         max-size: "100m"
         max-file: "10"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://laser-api:80/"]
+      test: ["CMD", "curl", "-f", "http://ai-docks:80/"]
       interval: 1m
       timeout: 20m
       retries: 20

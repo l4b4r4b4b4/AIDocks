@@ -5,16 +5,34 @@ from tqdm import tqdm
 import numpy as np
 import gc
 
+
 class ModelModifier:
-    def __init__(self, model_name):
+    def __init__(
+        self,
+        model_name,
+        datasets=[
+            "gsm8k",
+            "mmlu",
+            "winogrande",
+            "arc_challenge",
+            "hellaswag",
+            "truthfulqa_mc2",
+            "wikitext2",
+            "ptb",
+        ],
+        seq_len=32,
+    ):
         self.model_name = model_name
-        self.model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16, device_map={"":0})
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name, torch_dtype=torch.bfloat16, device_map={"": 0}
+        )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.layer_snr = {}
         self.modified_layers = set()
         self.original_weights = {}
-  
-        
+        self.datasets = datasets
+        self.seq_len = seq_len
+
     def calculate_snr_for_layer(self, layer_type, layer_number):
         for name, module in self.model.named_modules():
             if layer_type in name and str(layer_number) in name:
@@ -28,7 +46,7 @@ class ModelModifier:
 
                 signal = S[S > mp_threshold].sum()
                 noise = S[S <= mp_threshold].sum()
-                snr = signal / noise if noise != 0 else float('inf')
+                snr = signal / noise if noise != 0 else float("inf")
                 del S, weights
                 torch.cuda.empty_cache()  # Clear PyTorch's CUDA memory cache
                 gc.collect()
@@ -53,7 +71,9 @@ class ModelModifier:
 
                 # Calculate Marchenko-Pastur threshold
                 n, m = weights.shape
-                mp_threshold_full_iqr = self.marchenko_pastur_threshold(sigma_estimated_full_iqr, n, m)
+                mp_threshold_full_iqr = self.marchenko_pastur_threshold(
+                    sigma_estimated_full_iqr, n, m
+                )
 
                 # Retain only the singular values above the MP threshold
                 S_reduced = torch.zeros_like(S)
@@ -71,9 +91,9 @@ class ModelModifier:
     @staticmethod
     def marchenko_pastur_threshold(sigma, n, m):
         beta = n / m if n < m else m / n
-        threshold = sigma * np.sqrt((1 + np.sqrt(beta))**2)
+        threshold = sigma * np.sqrt((1 + np.sqrt(beta)) ** 2)
         return threshold
-    
+
     ## Calculate an estimate of the standard deviation of the singular values based on Inter Quantile Range
 
     @staticmethod
@@ -81,9 +101,10 @@ class ModelModifier:
         q75 = torch.quantile(S, 0.75)
         q25 = torch.quantile(S, 0.25)
         iqr = q75 - q25
-        sigma_estimated = iqr / 1.349 ## 0.6745 * sigma is the expected range between the quantiles (Q1 and Q3)
+        sigma_estimated = (
+            iqr / 1.349
+        )  ## 0.6745 * sigma is the expected range between the quantiles (Q1 and Q3)
         return sigma_estimated
-
 
     def restore_model_original_layer(self, layer_type, layer_number):
         layer_id = f"{layer_type}_{layer_number}"
@@ -97,44 +118,55 @@ class ModelModifier:
                 else:
                     print(f"No original weights saved for layer: {name}")
 
-    def calculate_model_perplexity(self, datasets=['gsm8k'], seqlen=32, use_cuda_graph=False, use_flash_attn=False):
+    def calculate_model_perplexity(
+        self, use_cuda_graph=False, use_flash_attn=False
+    ):
         model = self.model
+        datasets = self.datasets
+        seq_len = self.seq_len
         model_str = self.model_name
         acc_loss = 0.0
         total_samples = 0
 
         for dataset in datasets:
-            input_tok = gptq_data_utils_math.get_test_tokens(dataset, seed=0, seqlen=seqlen, model=model_str)
+            input_tok = gptq_data_utils_math.get_test_tokens(
+                dataset, seed=0, seq_len=seq_len, model=model_str
+            )
             total_length = input_tok.size(0)
-            nsamples = total_length // seqlen
-            rest = total_length % seqlen
+            n_samples = total_length // seq_len
+            rest = total_length % seq_len
 
             if rest != 0:
-            # if the last part of the data is not complete, we cut it off
+                # if the last part of the data is not complete, we cut it off
                 input_tok = input_tok[:-rest]
 
-            input_tok = input_tok.view(-1, seqlen)  # reshape the tensor
-            total_samples += nsamples
+            input_tok = input_tok.view(-1, seq_len)  # reshape the tensor
+            total_samples += n_samples
 
-            #if not use_cuda_graph:
+            # if not use_cuda_graph:
             #    model.reset()
 
             loss_fct = torch.nn.CrossEntropyLoss().cuda()
-            progress = tqdm(range(nsamples))
+            progress = tqdm(range(n_samples))
             for ii in progress:
                 input = input_tok[ii, :].cuda().view(1, -1)
-                output = model(input, use_cache=False, output_hidden_states=False, output_attentions=False)[0]
+                output = model(
+                    input,
+                    use_cache=False,
+                    output_hidden_states=False,
+                    output_attentions=False,
+                )[0]
                 shift_logits = output[:, :-1, :].contiguous()
                 shift_labels = input[:, 1:]
-                loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+                loss = loss_fct(
+                    shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)
+                )
                 acc_loss += loss.item()
                 progress.set_description(f"avg_loss = {acc_loss/(ii+1)}")
 
         avg_loss = acc_loss / total_samples
         ppl = torch.exp(torch.tensor(avg_loss)).item()
         return ppl
-    
-
 
     def assess_layers_snr(self, layer_types, layer_numbers):
         for name, _ in self.model.named_modules():
@@ -142,17 +174,25 @@ class ModelModifier:
                 for layer_type in layer_types:
                     if layer_type in name and str(layer_number) in name:
                         layer_name = f"{layer_type}+{layer_number}"
-                        print("*"*50, flush=True)
-                        print(f"Calculating Signal to Noise Ratio at layer {layer_name}", flush=True)
+                        print("*" * 50, flush=True)
+                        print(
+                            f"Calculating Signal to Noise Ratio at layer {layer_name}",
+                            flush=True,
+                        )
                         snr = self.calculate_snr_for_layer(layer_type, layer_number)
                         self.layer_snr[layer_name] = snr
-                        print(f"Signal to Noise Ratio at layer {layer_name} = {snr}", flush=True)
-                        print("*"*50, flush=True)
+                        print(
+                            f"Signal to Noise Ratio at layer {layer_name} = {snr}",
+                            flush=True,
+                        )
+                        print("*" * 50, flush=True)
 
     def select_layers_for_modification(self, k):
-        sorted_layers = sorted(self.layer_snr.items(), key=lambda x: x[1], reverse=False)
+        sorted_layers = sorted(
+            self.layer_snr.items(), key=lambda x: x[1], reverse=False
+        )
         return [layer[0] for layer in sorted_layers[:k]]
-    
+
     def test_and_modify_layers(self, candidate_layers):
         initial_perplexity = self.calculate_model_perplexity()
         print(f"Initial Model Perplexity: {initial_perplexity}")
@@ -161,22 +201,30 @@ class ModelModifier:
             # Modify the layer
             layer_type = layer.split("+")[0]
             layer_number = layer.split("+")[1]
-            self.update_model_reduce_layer(layer_type=layer_type,layer_number=layer_number)
-            
+            self.update_model_reduce_layer(
+                layer_type=layer_type, layer_number=layer_number
+            )
+
             # Test the model's performance
             new_perplexity = self.calculate_model_perplexity()
             print(f"Tested Model Perplexity after modifying {layer}: {new_perplexity}")
 
             # If the perplexity does not improve significantly, revert the change
             if new_perplexity > initial_perplexity:
-                self.restore_model_original_layer(layer_type=layer_type,layer_number=layer_number)
-                print(f"Reverted changes in {layer} due to lack of improvement.", flush=True)
+                self.restore_model_original_layer(
+                    layer_type=layer_type, layer_number=layer_number
+                )
+                print(
+                    f"Reverted changes in {layer} due to lack of improvement.",
+                    flush=True,
+                )
             else:
                 initial_perplexity = new_perplexity
-                print(f"Modification kept for {layer}. New baseline perplexity: {initial_perplexity}", flush=True)
+                print(
+                    f"Modification kept for {layer}. New baseline perplexity: {initial_perplexity}",
+                    flush=True,
+                )
 
     def save_model(self, save_dir):
-
         self.model.save_pretrained(save_dir)
         self.tokenizer.save_pretrained(save_dir)
-

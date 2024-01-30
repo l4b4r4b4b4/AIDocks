@@ -33,6 +33,7 @@ async def get_root():
 class LaserInput(BaseModel):
     base_model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     laser_model_name: str = "TinyLlama-1.1B-Chat-v1.0-Laser"
+    top_k_layers: Optional[int] = 15
     publish: Optional[bool] = False
     trainer: Optional[str] = "LHC88"
 
@@ -64,7 +65,8 @@ async def run_laser(request_body: LaserInput):
     ]
 
     modifier.assess_layers_snr(layer_types, layer_numbers)
-    top_k_layers = modifier.select_layers_for_modification(15)  # Select top 15 layers
+    # Select top k layers
+    top_k_layers = modifier.select_layers_for_modification(request_body.top_k_layers)
     print(top_k_layers, flush=True)
 
     modifier.test_and_modify_layers(top_k_layers)
@@ -91,12 +93,12 @@ class DType(str, Enum):
 
 
 class BYOMoEConfig(BaseModel):
-    base_model: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    base_model: str = "cognitivecomputations/dolphin-2.6-mistral-7b-dpo"
     gate_mode: Optional[GateMode] = GateMode.hidden
     dtype: Optional[DType] = DType.bfloat16
     experts: Optional[List[Expert]] = [
         Expert(
-            source_model="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+            source_model="teknium/OpenHermes-2.5-Mistral-7B",
             positive_prompts=[
                 "instruction",
                 "solutions",
@@ -106,7 +108,7 @@ class BYOMoEConfig(BaseModel):
             ],
         ),
         Expert(
-            source_model="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+            source_model="openaccess-ai-collective/DPOpenHermes-7B",
             positive_prompts=[
                 "mathematics",
                 "optimization",
@@ -148,6 +150,7 @@ async def byo_moe(request_body: BYOMoEInput):
     output, error = process.communicate()
 
     if error:
-        print(f"An error occurred: {error}")
+        print(f"An error occurred: {repr(error)}")
     else:
         print(output.decode())
+        

@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+icecream
+pandas
+numpy
+
+huggingface_hub
+datasets 
+
+FlagEmbedding
+peft
+trl
+accelerate
+
+# optimum
+# bitsandbytes
+# sentencepiece 
