@@ -104,20 +104,31 @@ Uses only the raw token embedding of the prompts, using the same gate parameters
 
 Randomly initializes the MoE gates. Good for if you are going to fine tune the model afterwards, or maybe if you want something a little unhinged? I won't judge.
 
-### `/publish` to HuggingFace 🤗
-
-[Try API endpoint](http://localhost:8723/docs#/default/publish_endpoint_publish_post)
-
 ### `/train/llm` Optimized LLM fine-tuning (DPO & SFT) with `unsloth`
-Coming soon ...
+Documentation coming soon!
 
 ### `/train/emb` LoRA-PEFT for Embeddings
 Including JinaAI!
 
-Coming soon ...
+Feature coming soon!
 
 ### `/train/rerank` ReRanker fine-tuning
-Coming soon ...
+
+Feature coming soon!
+
+### `/quantize/{method}`
+
+#### AWQ
+
+#### GPTQ
+Feature coming soon!
+
+### GGUF
+Feature coming soon!
+
+### `/publish` to HuggingFace 🤗
+
+[Try API endpoint](http://localhost:8723/docs#/default/publish_endpoint_publish_post)
 
 ## Explaining Resources
 1. [MergeKit Mixtral](https://github.com/cg123/mergekit/tree/mixtral)
