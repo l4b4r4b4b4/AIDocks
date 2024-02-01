@@ -1,10 +1,10 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from src.utils import gptq_data_utils_math
+from src.utils import gptq_data_utils
 from tqdm import tqdm
 import numpy as np
 import gc
-
+from bitsandbytes import optim
 
 class ModelModifier:
     def __init__(
@@ -12,26 +12,29 @@ class ModelModifier:
         model_name,
         datasets=[
             "gsm8k",
+            "wikitext2",
             "mmlu",
             "winogrande",
             "arc_challenge",
             "hellaswag",
             "truthfulqa_mc2",
-            "wikitext2",
             "ptb",
         ],
-        seq_len=32,
+        seqlen=64,
+        load_in_8bit=False
     ):
         self.model_name = model_name
         self.model = AutoModelForCausalLM.from_pretrained(
-            model_name, torch_dtype=torch.bfloat16, device_map={"": 0}
+            
+            model_name, torch_dtype=torch.bfloat16, device_map={"": 0}, load_in_8bit=load_in_8bit,
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.layer_snr = {}
         self.modified_layers = set()
         self.original_weights = {}
         self.datasets = datasets
-        self.seq_len = seq_len
+        self.seqlen = seqlen
+        self.load_in_8bit = load_in_8bit
 
     def calculate_snr_for_layer(self, layer_type, layer_number):
         for name, module in self.model.named_modules():
@@ -62,6 +65,7 @@ class ModelModifier:
             if layer_type in name and str(layer_number) in name:
                 print(f"Reconstructing layer: {name}")
                 original_dtype = module.weight.dtype
+                print(f"Original dtype: {original_dtype}")
                 self.original_weights[name] = module.weight.detach().clone()
                 weights = module.weight.double()
                 U, S, V = torch.linalg.svd(weights, full_matrices=False)
@@ -80,11 +84,22 @@ class ModelModifier:
                 k = (S > mp_threshold_full_iqr).sum().item()
                 S_reduced[:k] = S[:k]
                 print(f"Reduced from {S.shape} to {k}")
+                print(f"S[:k] {S[:k]}")
 
                 # Reconstruct the matrix using the thresholded singular values
                 reconstructed_weights = U @ torch.diag(S_reduced) @ V
                 reconstructed_weights = reconstructed_weights.to(original_dtype)
+                print("reconstructed_weights :=", reconstructed_weights)
+                if self.load_in_8bit:
+                    reconstructed_weights = reconstructed_weights.dequantize()
+                    # reconstructed_weights = reconstructed_weights.float()
+                    print("1 reconstructed_weights :=", reconstructed_weights)
+                    # reconstructed_weights = torch.quantize_per_tensor(reconstructed_weights, scale=1.0, zero_point=0, dtype=torch.quint8)
+                    # print("2 reconstructed_weights :=", reconstructed_weights)
+                    # print("3 reconstructed_weights :=", reconstructed_weights)
+
                 module.weight = torch.nn.Parameter(reconstructed_weights)
+                print(module.weight)
                 self.modified_layers.add(layer_id)
                 return True
 
@@ -117,56 +132,91 @@ class ModelModifier:
                         self.modified_layers.remove(layer_id)
                 else:
                     print(f"No original weights saved for layer: {name}")
-
-    def calculate_model_perplexity(
-        self, use_cuda_graph=False, use_flash_attn=False
-    ):
+    def calculate_model_perplexity(self, datasets=['gsm8k'], seqlen=32): # , use_cuda_graph=False, use_flash_attn=False
         model = self.model
-        datasets = self.datasets
-        seq_len = self.seq_len
         model_str = self.model_name
         acc_loss = 0.0
         total_samples = 0
 
         for dataset in datasets:
-            input_tok = gptq_data_utils_math.get_test_tokens(
-                dataset, seed=0, seq_len=seq_len, model=model_str
-            )
+            input_tok = gptq_data_utils.get_test_tokens(dataset, seed=0, seqlen=seqlen, model=model_str)
             total_length = input_tok.size(0)
-            n_samples = total_length // seq_len
-            rest = total_length % seq_len
+            nsamples = total_length // seqlen
+            rest = total_length % seqlen
 
             if rest != 0:
-                # if the last part of the data is not complete, we cut it off
+            # if the last part of the data is not complete, we cut it off
                 input_tok = input_tok[:-rest]
 
-            input_tok = input_tok.view(-1, seq_len)  # reshape the tensor
-            total_samples += n_samples
+            input_tok = input_tok.view(-1, seqlen)  # reshape the tensor
+            total_samples += nsamples
 
-            # if not use_cuda_graph:
+            #if not use_cuda_graph:
             #    model.reset()
 
             loss_fct = torch.nn.CrossEntropyLoss().cuda()
-            progress = tqdm(range(n_samples))
+            progress = tqdm(range(nsamples))
             for ii in progress:
                 input = input_tok[ii, :].cuda().view(1, -1)
-                output = model(
-                    input,
-                    use_cache=False,
-                    output_hidden_states=False,
-                    output_attentions=False,
-                )[0]
+                output = model(input, use_cache=False, output_hidden_states=False, output_attentions=False)[0]
                 shift_logits = output[:, :-1, :].contiguous()
                 shift_labels = input[:, 1:]
-                loss = loss_fct(
-                    shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)
-                )
+                loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
                 acc_loss += loss.item()
                 progress.set_description(f"avg_loss = {acc_loss/(ii+1)}")
 
         avg_loss = acc_loss / total_samples
         ppl = torch.exp(torch.tensor(avg_loss)).item()
         return ppl
+    # def calculate_model_perplexity(
+    #     self, use_cuda_graph=False, use_flash_attn=False
+    # ):
+    #     model = self.model
+    #     datasets = self.datasets
+    #     seqlen = self.seqlen
+    #     model_str = self.model_name
+    #     acc_loss = 0.0
+    #     total_samples = 0
+
+    #     for dataset in datasets:
+    #         input_tok = gptq_data_utils.get_test_tokens(
+    #             dataset, seed=0, seqlen=seqlen, model=model_str
+    #         )
+    #         total_length = input_tok.size(0)
+    #         n_samples = total_length // seqlen
+    #         rest = total_length % seqlen
+
+    #         if rest != 0:
+    #             # if the last part of the data is not complete, we cut it off
+    #             input_tok = input_tok[:-rest]
+
+    #         input_tok = input_tok.view(-1, seqlen)  # reshape the tensor
+    #         total_samples += n_samples
+
+    #         # if not use_cuda_graph:
+    #         #    model.reset()
+
+    #         loss_fct = torch.nn.CrossEntropyLoss().cuda()
+    #         progress = tqdm(range(n_samples))
+    #         for ii in progress:
+    #             input = input_tok[ii, :].cuda().view(1, -1)
+    #             output = model(
+    #                 input,
+    #                 use_cache=False,
+    #                 output_hidden_states=False,
+    #                 output_attentions=False,
+    #             )[0]
+    #             shift_logits = output[:, :-1, :].contiguous()
+    #             shift_labels = input[:, 1:]
+    #             loss = loss_fct(
+    #                 shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)
+    #             )
+    #             acc_loss += loss.item()
+    #             progress.set_description(f"avg_loss = {acc_loss/(ii+1)}")
+
+    #     avg_loss = acc_loss / total_samples
+    #     ppl = torch.exp(torch.tensor(avg_loss)).item()
+    #     return ppl
 
     def assess_layers_snr(self, layer_types, layer_numbers):
         for name, _ in self.model.named_modules():
@@ -194,7 +244,7 @@ class ModelModifier:
         return [layer[0] for layer in sorted_layers[:k]]
 
     def test_and_modify_layers(self, candidate_layers):
-        initial_perplexity = self.calculate_model_perplexity()
+        initial_perplexity = self.calculate_model_perplexity(seqlen=self.seqlen, datasets=self.datasets)
         print(f"Initial Model Perplexity: {initial_perplexity}")
 
         for layer in candidate_layers:
@@ -206,7 +256,7 @@ class ModelModifier:
             )
 
             # Test the model's performance
-            new_perplexity = self.calculate_model_perplexity()
+            new_perplexity = self.calculate_model_perplexity(seqlen=self.seqlen, datasets=self.datasets)
             print(f"Tested Model Perplexity after modifying {layer}: {new_perplexity}")
 
             # If the perplexity does not improve significantly, revert the change

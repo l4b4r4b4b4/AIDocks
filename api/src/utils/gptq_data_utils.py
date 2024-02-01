@@ -17,7 +17,7 @@ def get_wikitext2(nsamples, seed, seqlen, model):
     testdata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
 
     from transformers import AutoTokenizer 
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
     trainenc = tokenizer("\n\n".join(traindata['text']), return_tensors='pt')
     testenc = tokenizer("\n\n".join(testdata['text']), return_tensors='pt')
 
@@ -40,7 +40,7 @@ def get_ptb(nsamples, seed, seqlen, model):
     valdata = load_dataset('ptb_text_only', 'penn_treebank', split='validation')
 
     from transformers import AutoTokenizer 
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
     trainenc = tokenizer("\n\n".join(traindata['sentence']), return_tensors='pt')
     testenc = tokenizer("\n\n".join(valdata['sentence']), return_tensors='pt')
 
@@ -67,7 +67,7 @@ def get_c4(nsamples, seed, seqlen, model):
     )
 
     from transformers import AutoTokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
 
     import random
     random.seed(seed)
@@ -112,7 +112,7 @@ def get_ptb_new(nsamples, seed, seqlen, model):
     testdata = load_dataset('ptb_text_only', 'penn_treebank', split='test')
 
     from transformers import AutoTokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
     trainenc = tokenizer(" ".join(traindata['sentence']), return_tensors='pt')
     testenc = tokenizer(" ".join(testdata['sentence']), return_tensors='pt')
 
@@ -139,7 +139,7 @@ def get_c4_new(nsamples, seed, seqlen, model):
     )
 
     from transformers import AutoTokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
 
     import random
     random.seed(seed)
@@ -168,11 +168,95 @@ def get_c4_new(nsamples, seed, seqlen, model):
     return trainloader, valenc
 
 @lru_cache
+def get_gsm8k(nsamples, seed, seqlen, model):
+    from datasets import load_dataset
+    from transformers import AutoTokenizer
+    import random
+
+    # load gsm8k dataset
+    traindata = load_dataset('gsm8k', 'main', split='train')
+    testdata = load_dataset('gsm8k', 'main', split='test')
+
+    # initialize tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    # set seed
+    random.seed(seed)
+
+    # prepare dataset for training
+    trainloader = []
+    for _ in range(nsamples):
+        i = random.randint(0, len(traindata) - 1)
+        encoded = tokenizer(traindata[i]['question'], return_tensors='pt', padding="max_length", truncation=True, max_length=seqlen)
+        inp = encoded.input_ids
+        tar = inp.clone()
+        tar[:, :-1] = -100
+        trainloader.append((inp, tar))
+
+    # prepare dataset for test
+    test_tokens = []
+    for i in range(len(testdata)):
+        encoded = tokenizer(testdata[i]['question'], return_tensors='pt', padding="max_length", truncation=True, max_length=seqlen)
+        test_tokens.append(encoded.input_ids)
+
+    # converting the list of tensors into a single tensor and wrapping it in a dictionary
+    test_tokens_tensor = torch.cat(test_tokens, dim=0)
+    test_data_dict = {'input_ids': test_tokens_tensor}
+
+    return trainloader, test_data_dict
+
+@lru_cache
+def get_mmlu(nsamples, seed, seqlen, model):
+    from datasets import load_dataset
+    from transformers import AutoTokenizer
+    import random
+
+    # load mmlu dataset
+    traindata = load_dataset('mmlu', 'main', split='train')
+    testdata = load_dataset('mmlu', 'main', split='test')
+
+    # initialize tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    # set seed
+    random.seed(seed)
+
+    # prepare dataset for training
+    trainloader = []
+    for _ in range(nsamples):
+        i = random.randint(0, len(traindata) - 1)
+        encoded = tokenizer(traindata[i]['question'], return_tensors='pt', padding="max_length", truncation=True, max_length=seqlen)
+        inp = encoded.input_ids
+        tar = inp.clone()
+        tar[:, :-1] = -100
+        trainloader.append((inp, tar))
+
+    # prepare dataset for test
+    test_tokens = []
+    for i in range(len(testdata)):
+        encoded = tokenizer(testdata[i]['question'], return_tensors='pt', padding="max_length", truncation=True, max_length=seqlen)
+        test_tokens.append(encoded.input_ids)
+
+    # converting the list of tensors into a single tensor and wrapping it in a dictionary
+    test_tokens_tensor = torch.cat(test_tokens, dim=0)
+    test_data_dict = {'input_ids': test_tokens_tensor}
+
+    return trainloader, test_data_dict
+
+@lru_cache
 def get_loaders(
     name, nsamples=128, seed=0, seqlen=2048, model=''
 ):
     if 'wikitext2' in name:
         return get_wikitext2(nsamples, seed, seqlen, model)
+    if name == 'mmlu':
+        return get_mmlu(nsamples, seed, seqlen, model)[1]['input_ids']
+    if name == 'gsm8k':
+        return get_gsm8k(nsamples, seed, seqlen, model)[1]['input_ids']
     if 'ptb' in name:
         if 'new' in name:
             return get_ptb_new(nsamples, seed, seqlen, model)
@@ -190,6 +274,8 @@ def get_test_tokens(
     train_samples = 0
     if name == 'wikitext2':
         return get_wikitext2(train_samples, seed, seqlen, model)[1]['input_ids']
+    elif name == 'gsm8k':
+        return get_gsm8k(train_samples, seed, seqlen, model)[1]['input_ids']
     elif name == 'ptb':
         return get_ptb_new(train_samples, seed, seqlen, model)[1].input_ids
     elif name == 'c4':

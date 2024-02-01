@@ -1,0 +1,51 @@
+version: "3.5"
+
+networks:
+  ai-docks-net:
+    driver: bridge
+
+services:
+  ai-docks-service:
+    volumes:
+      - ./api:/app/:rw
+      - ./api/models/emb:/app/models/emb:rw
+      - ./api/models/rr:/app/models/rr:rw
+      - ./api/models/llm:/app/models/llm:rw
+      - hf-cache:/.hf-cache
+    deploy:
+      replicas: 1
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    runtime: nvidia
+    ipc: host
+    tty: true # enable colorized logs
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: ai-docks
+    ports:
+      - 8723:80
+    networks:
+      - ai-docks-net
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_HOME=/.hf-cache
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "10"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://ai-docks:80/"]
+      interval: 1m
+      timeout: 20m
+      retries: 20
+
+volumes:
+  hf-cache:
+    driver: local

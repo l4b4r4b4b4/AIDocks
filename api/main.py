@@ -828,18 +828,19 @@ def run_sft_training(input: LLMTrainingInput):
 class LaserInput(BaseModel):
     base_model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     laser_model_name: str = "TinyLlama-1.1B-Chat-v1.0-Laser"
-    top_k_layers: Optional[int] = 15
+    top_k_layers: Optional[int] = 2
     benchmark_datasets: Optional[List[str]] = [
         "gsm8k",
+        "wikitext2",
         "mmlu",
         "winogrande",
         "arc_challenge",
         "hellaswag",
         "truthfulqa_mc2",
-        "wikitext2",
         "ptb",
     ]
-    seq_len: Optional[int] = 256
+    seqlen: Optional[int] = 128
+    # load_in_8bit: Optional[bool] = False
 
 
 @app.post("/optimize")
@@ -852,12 +853,13 @@ async def run_laser(request_body: LaserInput):
     base_model_name = request_body.base_model_name
     laser_model_name = request_body.laser_model_name
     benchmark_datasets = request_body.benchmark_datasets
-    seq_len = request_body.seq_len
+    # load_in_8bit = request_body.load_in_8bit
+    seqlen = request_body.seqlen
     modifier = ModelModifier(
-        base_model_name, datasets=benchmark_datasets, seq_len=seq_len
+        base_model_name, datasets=benchmark_datasets, seqlen=seqlen #, load_in_8bit=load_in_8bit
     )
-
-    layer_numbers = list(range(31, -1, -1))
+    # TODO get max n layers from model config
+    layer_numbers = list(range(request_body.top_k_layers, -1, -1))
     layer_numbers = [f".{l}." for l in layer_numbers]
     ic(layer_numbers)
 
@@ -877,7 +879,9 @@ async def run_laser(request_body: LaserInput):
     print(top_k_layers, flush=True)
 
     modifier.test_and_modify_layers(top_k_layers)
-    modifier.save_model(str(f"models/{laser_model_name}"))
+    modifier.save_model(str(f"models/llm/{laser_model_name}"))
+    finish_msg = f"Model {laser_model_name} is ready for use at `models/llm/{laser_model_name}`"
+    ic(finish_msg)
     return "ok"
 
 
