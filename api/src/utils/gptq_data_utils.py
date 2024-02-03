@@ -5,6 +5,8 @@ From https://github.com/IST-DASLab/gptq/blob/main/datautils.py
 import numpy as np
 import torch
 from functools import lru_cache
+from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 
 def set_seed(seed):
     np.random.seed(seed)
@@ -12,19 +14,24 @@ def set_seed(seed):
 
 @lru_cache
 def get_wikitext2(nsamples, seed, seqlen, model):
+    print("get_wikitext2", flush=True)
     from datasets import load_dataset
     traindata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='train')
     testdata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
+    traindata = traindata.shard(num_shards=12, index=0)[0]
+    testdata = testdata.shard(num_shards=12, index=0)[0]
 
     from transformers import AutoTokenizer 
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
+    print("get_wikitext2 trainenc", flush=True)
     trainenc = tokenizer("\n\n".join(traindata['text']), return_tensors='pt')
+    print("get_wikitext2 testenc", flush=True)
     testenc = tokenizer("\n\n".join(testdata['text']), return_tensors='pt')
 
     import random
     random.seed(seed)
     trainloader = []
-    for _ in range(nsamples):
+    for _ in tqdm(range(nsamples), "get_wikitext2 ... "):
         i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
         j = i + seqlen
         inp = trainenc.input_ids[:, i:j]
@@ -60,12 +67,13 @@ def get_ptb(nsamples, seed, seqlen, model):
 def get_c4(nsamples, seed, seqlen, model):
     from datasets import load_dataset
     traindata = load_dataset(
-        'allenai/c4', 'allenai--c4', data_files={'train': 'en/c4-train.00000-of-01024.json.gz'}, split='train'
+        'allenai/c4', 'en', data_files={'train': 'en/c4-train.00000-of-01024.json.gz'}, split='train'
     )
     valdata = load_dataset(
-        'allenai/c4', 'allenai--c4', data_files={'validation': 'en/c4-validation.00000-of-00008.json.gz'}, split='validation'
+        'allenai/c4', 'en', data_files={'validation': 'en/c4-validation.00000-of-00008.json.gz'}, split='validation'
     )
-
+    traindata = traindata.shard(num_shards=12, index=0)[0]
+    valdata = valdata.shard(num_shards=12, index=0)[0]
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
 
@@ -168,95 +176,11 @@ def get_c4_new(nsamples, seed, seqlen, model):
     return trainloader, valenc
 
 @lru_cache
-def get_gsm8k(nsamples, seed, seqlen, model):
-    from datasets import load_dataset
-    from transformers import AutoTokenizer
-    import random
-
-    # load gsm8k dataset
-    traindata = load_dataset('gsm8k', 'main', split='train')
-    testdata = load_dataset('gsm8k', 'main', split='test')
-
-    # initialize tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-
-    # set seed
-    random.seed(seed)
-
-    # prepare dataset for training
-    trainloader = []
-    for _ in range(nsamples):
-        i = random.randint(0, len(traindata) - 1)
-        encoded = tokenizer(traindata[i]['question'], return_tensors='pt', padding="max_length", truncation=True, max_length=seqlen)
-        inp = encoded.input_ids
-        tar = inp.clone()
-        tar[:, :-1] = -100
-        trainloader.append((inp, tar))
-
-    # prepare dataset for test
-    test_tokens = []
-    for i in range(len(testdata)):
-        encoded = tokenizer(testdata[i]['question'], return_tensors='pt', padding="max_length", truncation=True, max_length=seqlen)
-        test_tokens.append(encoded.input_ids)
-
-    # converting the list of tensors into a single tensor and wrapping it in a dictionary
-    test_tokens_tensor = torch.cat(test_tokens, dim=0)
-    test_data_dict = {'input_ids': test_tokens_tensor}
-
-    return trainloader, test_data_dict
-
-@lru_cache
-def get_mmlu(nsamples, seed, seqlen, model):
-    from datasets import load_dataset
-    from transformers import AutoTokenizer
-    import random
-
-    # load mmlu dataset
-    traindata = load_dataset('mmlu', 'main', split='train')
-    testdata = load_dataset('mmlu', 'main', split='test')
-
-    # initialize tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-
-    # set seed
-    random.seed(seed)
-
-    # prepare dataset for training
-    trainloader = []
-    for _ in range(nsamples):
-        i = random.randint(0, len(traindata) - 1)
-        encoded = tokenizer(traindata[i]['question'], return_tensors='pt', padding="max_length", truncation=True, max_length=seqlen)
-        inp = encoded.input_ids
-        tar = inp.clone()
-        tar[:, :-1] = -100
-        trainloader.append((inp, tar))
-
-    # prepare dataset for test
-    test_tokens = []
-    for i in range(len(testdata)):
-        encoded = tokenizer(testdata[i]['question'], return_tensors='pt', padding="max_length", truncation=True, max_length=seqlen)
-        test_tokens.append(encoded.input_ids)
-
-    # converting the list of tensors into a single tensor and wrapping it in a dictionary
-    test_tokens_tensor = torch.cat(test_tokens, dim=0)
-    test_data_dict = {'input_ids': test_tokens_tensor}
-
-    return trainloader, test_data_dict
-
-@lru_cache
 def get_loaders(
     name, nsamples=128, seed=0, seqlen=2048, model=''
 ):
     if 'wikitext2' in name:
         return get_wikitext2(nsamples, seed, seqlen, model)
-    if name == 'mmlu':
-        return get_mmlu(nsamples, seed, seqlen, model)[1]['input_ids']
-    if name == 'gsm8k':
-        return get_gsm8k(nsamples, seed, seqlen, model)[1]['input_ids']
     if 'ptb' in name:
         if 'new' in name:
             return get_ptb_new(nsamples, seed, seqlen, model)
@@ -274,8 +198,6 @@ def get_test_tokens(
     train_samples = 0
     if name == 'wikitext2':
         return get_wikitext2(train_samples, seed, seqlen, model)[1]['input_ids']
-    elif name == 'gsm8k':
-        return get_gsm8k(train_samples, seed, seqlen, model)[1]['input_ids']
     elif name == 'ptb':
         return get_ptb_new(train_samples, seed, seqlen, model)[1].input_ids
     elif name == 'c4':

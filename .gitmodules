@@ -1,0 +1,6 @@
+[submodule "vector-store"]
+	path = vector-store
+	url = https://github.com/chroma-core/chroma.git
+[submodule "llm-inference"]
+	path = llm-inference
+	url = https://github.com/brucethemoose/vllm.git

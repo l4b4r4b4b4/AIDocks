@@ -829,16 +829,6 @@ class LaserInput(BaseModel):
     base_model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     laser_model_name: str = "TinyLlama-1.1B-Chat-v1.0-Laser"
     top_k_layers: Optional[int] = 2
-    benchmark_datasets: Optional[List[str]] = [
-        "gsm8k",
-        "wikitext2",
-        "mmlu",
-        "winogrande",
-        "arc_challenge",
-        "hellaswag",
-        "truthfulqa_mc2",
-        "ptb",
-    ]
     seqlen: Optional[int] = 128
     # load_in_8bit: Optional[bool] = False
 
@@ -852,11 +842,10 @@ async def laser_llm(request_body: LaserInput, background_tasks: BackgroundTasks)
 async def run_laser(request_body: LaserInput):
     base_model_name = request_body.base_model_name
     laser_model_name = request_body.laser_model_name
-    benchmark_datasets = request_body.benchmark_datasets
     # load_in_8bit = request_body.load_in_8bit
     seqlen = request_body.seqlen
     modifier = ModelModifier(
-        base_model_name, datasets=benchmark_datasets, seqlen=seqlen #, load_in_8bit=load_in_8bit
+        base_model_name, seqlen=seqlen #, load_in_8bit=load_in_8bit
     )
     # TODO get max n layers from model config
     layer_numbers = list(range(request_body.top_k_layers, -1, -1))

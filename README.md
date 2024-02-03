@@ -205,6 +205,5 @@ Some explaining resources for concepts, technologies and tools used in this repo
 1. [MergeKit Mixtral](https://github.com/cg123/mergekit/tree/mixtral)
 2. [Mixture of Experts for Clowns (at a Circus)](https://goddard.blog/posts/clown-moe)
 3. [Fernando Fernandes Neto, David Golchinfar and Eric Hartford. "Optimizing Large Language Models Using Layer-Selective Rank Reduction and Random Matrix Theory." 2024.](https://github.com/cognitivecomputations/laserRMT)
-4. [Introducing ‘LASER’: MIT and Microsoft’s Game-Changing Approach to Optimizing Large Language Models](https://multiplatform.ai/introducing-laser-mit-and-microsofts-game-changing-approach-to-optimizing-large-language-models/)
-5. [This Paper from MIT and Microsoft Introduces ‘LASER’: A Novel Machine Learning Approach that can Simultaneously Enhance an LLM’s Task Performance and Reduce its Size with no Additional Training](https://www.marktechpost.com/2024/01/02/this-paper-from-mit-and-microsoft-introduces-laser-a-novel-machine-learning-approach-that-can-simultaneously-enhance-an-llms-task-performance-and-reduce-its-size-with-no-additional-training/)
-6. [An Empirical view of Marchenko-Pastur Theorem](https://medium.com/swlh/an-empirical-view-of-marchenko-pastur-theorem-1f564af5603d)
+4. [The Truth is in There: Improving Reasoning in Language Models with Layer-Selective Rank Reduction](https://arxiv.org/pdf/2312.13558.pdf)
+5. [An Empirical view of Marchenko-Pastur Theorem](https://medium.com/swlh/an-empirical-view-of-marchenko-pastur-theorem-1f564af5603d)
