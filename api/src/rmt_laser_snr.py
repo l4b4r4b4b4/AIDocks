@@ -106,14 +106,14 @@ class ModelModifier:
                     print(f"No original weights saved for layer: {name}", flush=True)
         return
 
-    def calculate_model_perplexity(self, datasets=['wikitext2', 'ptb'], seqlen=128):
+    def calculate_model_perplexity(self, datasets=['wikitext2', 'ptb', 'c4'], seqlen=128):
         model = self.model
         model_str = self.model_name
         acc_loss = 0.0
         total_samples = 0
 
         for dataset in datasets:
-            input_tok = gptq_data_utils.get_test_tokens(dataset, seed=0, seqlen=seqlen, model=model_str)
+            input_tok = gptq_data_utils.get_test_tokens(dataset, n_samples=256, seed=0, seqlen=seqlen, model=model_str)
             nsamples = input_tok.numel() // seqlen
             input_tok = input_tok[0, :(seqlen * nsamples)].view(nsamples, seqlen)
             total_samples += nsamples
