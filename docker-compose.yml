@@ -75,7 +75,7 @@ services:
   #     timeout: 20m
   #     retries: 20
 
-  llava:
+  vision:
     deploy:
       replicas: 1
       resources:
@@ -113,7 +113,7 @@ services:
         max-size: "100m"
         max-file: "10"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://llava:10000/"]
+      test: ["CMD", "curl", "-f", "http://vision:10000/"]
       interval: 1m
       timeout: 20m
       retries: 20
