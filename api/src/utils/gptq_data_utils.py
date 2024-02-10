@@ -6,7 +6,9 @@ import numpy as np
 import torch
 from functools import lru_cache
 from sklearn.model_selection import train_test_split
+import os
 
+hf_home = os.environ.get('HF_HOME')
 def set_seed(seed):
     np.random.seed(seed)
     torch.random.manual_seed(seed)
@@ -20,7 +22,8 @@ def get_wikitext2(n_samples, seed, seqlen, model):
     from transformers import AutoTokenizer 
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
     print("get_wikitext2 testenc", flush=True)
-    test_enc = tokenizer("\n\n".join(testdata['text'][:n_samples]), return_tensors='pt')
+    test_enc = tokenizer("\n\n".join(testdata['text']), return_tensors='pt')
+    # test_enc = tokenizer("\n\n".join(testdata['text'][:n_samples]), return_tensors='pt')
     print("get_wikitext2 test_enc", test_enc, flush=True)
 
     return test_enc
@@ -33,7 +36,8 @@ def get_ptb(n_samples, seed, seqlen, model):
 
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
-    test_enc = tokenizer(" ".join(testdata['sentence'][:n_samples]), return_tensors='pt')
+    test_enc = tokenizer(" ".join(testdata['sentence']), return_tensors='pt')
+    # test_enc = tokenizer(" ".join(testdata['sentence'][:n_samples]), return_tensors='pt')
 
     print("get_ptb testenc", flush=True)
     
@@ -54,7 +58,8 @@ def get_c4(n_samples, seed, seqlen, model):
     import random
     random.seed(seed)
 
-    val_enc = tokenizer(' '.join(val_data[:n_samples]['text']), return_tensors='pt')
+    val_enc = tokenizer(' '.join(val_data[:8192]['text']), return_tensors='pt')
+    # val_enc = tokenizer(' '.join(val_data[:n_samples]['text']), return_tensors='pt')
     val_enc = val_enc.input_ids[:, :(256 * seqlen)]
     print("get_c4 testenc wrapped", flush=True)
 

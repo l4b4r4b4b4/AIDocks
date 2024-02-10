@@ -151,7 +151,7 @@ class ModelModifier:
         return [layer[0] for layer in sorted_layers[:k]]
     
     def test_and_modify_layers(self, candidate_layers):
-        initial_perplexity = self.calculate_model_perplexity()
+        initial_perplexity = self.calculate_model_perplexity(datasets=['wikitext2', 'ptb', 'c4'], seqlen=128)
         print(f"Initial Model Perplexity: {initial_perplexity}")
 
         for layer in candidate_layers:
@@ -161,7 +161,7 @@ class ModelModifier:
             self.update_model_reduce_layer(layer_type=layer_type,layer_number=layer_number)
             
             # Test the model's performance
-            new_perplexity = self.calculate_model_perplexity()
+            new_perplexity = self.calculate_model_perplexity(datasets=['wikitext2', 'ptb', 'c4'], seqlen=128)
             print(f"Tested Model Perplexity after modifying {layer}: {new_perplexity}")
 
             # If the perplexity does not improve significantly, revert the change
