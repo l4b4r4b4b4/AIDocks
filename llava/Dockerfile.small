@@ -1,0 +1,42 @@
+#FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel
+# FROM nvcr.io/nvidia/cuda:12.3.1-devel-ubuntu22.04
+FROM nvcr.io/nvidia/cuda:12.1.0-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND noninteractive
+ENV TZ=UTC
+RUN apt-get update && \  
+  apt-get upgrade -y && \
+  apt-get install -y --force-yes git build-essential git python3 python3-pip 
+
+RUN apt-get clean
+
+ENV PATH=/usr/local/cuda/:${PATH} 
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH  
+RUN pip install --upgrade wheel pip packaging 
+WORKDIR /app
+RUN git clone https://github.com/haotian-liu/LLaVA.git && \
+  cd LLaVA
+RUN cd LLaVA && \
+  # enable PEP 660 support 
+  pip install --upgrade pip  && \
+  # Install Llava base application
+  pip install -e .
+# Install additional packages for training
+RUN cd LLaVA && \
+  pip install -e ".[train]" && \
+  pip install flash-attn --no-build-isolation
+
+# Cleanup step  
+RUN pip cache purge
+
+RUN apt-get remove -y git build-essential && \  
+  apt-get autoremove -y && \  
+  apt-get clean  && \  
+  rm -rf /var/lib/apt/lists/*  
+
+COPY entrypoint.small.sh entrypoint.sh
+RUN chmod +x entrypoint.sh
+RUN ln -s /usr/bin/python3.10 /usr/bin/python
+ENV MODEL_PATH=liuhaotian/llava-v1.5-13b
+# CMD [ "python3.10", "-m", "llava.serve.controller", "--host", "0.0.0.0", "--port", "10000" ]
+ENTRYPOINT [ "/app/entrypoint.sh" ]
