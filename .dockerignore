@@ -1,0 +1,11 @@
+# Ignore Dockerfiles
+Dockerfile*.*
+
+# Ignore docker-compose files
+docker-compose*
+
+# Ignore .git files and directories
+.git/
+# Ignore .gitignore
+.gitignore
+.dockerignore
