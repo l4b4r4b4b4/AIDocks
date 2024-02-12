@@ -6,7 +6,9 @@ from transformers import (
 
 
 def get_cosine_embeddings(q1_embs, q2_embs):
-    return torch.sum(q1_embs * q2_embs, axis=1)
+    emb = torch.sum(q1_embs * q2_embs, axis=1)
+    torch.cuda.empty_cache()
+    return emb
 
 
 def get_loss(cosine_score, labels):

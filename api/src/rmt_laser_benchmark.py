@@ -19,13 +19,14 @@ from src.AutoModelForSentenceEmbedding import (
 )
 import time
 
+
 class ModelModifier:
     def __init__(
         self,
         model_name,
         prompt_template: PromptTemplate = PromptTemplate.chatml,
-        input_length=1024,
-        output_length=1024,
+        input_length=512,
+        output_length=512,
     ):
         self.model_name = model_name
         self.prompt_template = prompt_template
@@ -131,47 +132,36 @@ class ModelModifier:
                     print(f"No original weights saved for layer: {name}", flush=True)
         return
 
-    def calculate_cosine_similarity(self, embeddings_vec_1, embeddings_vec_2):
-
-        return F.cosine_similarity(embeddings_vec_1, embeddings_vec_2, dim=1)
-
-    def calculate_perplexity(self, inputs, labels):
-        # Encode the input and expected answer
-
-        # Calculate the loss
-        with torch.no_grad():
-            outputs = self.model(inputs, labels=labels)
-            loss = outputs.loss
-
-        # Calculate the perplexity
-        perplexity = torch.exp(loss)
-
-        return perplexity.item()
-
     def calculate_model_performance(
         self,
         datasets=["orca_dpo", "ultrafeedback"],  # "openhermes"
-        n_samples=256,
+        n_samples=64,
         input_length=1024,
         output_length=1024,
     ):
-        performance_scores = []
-        rejection_scores = []
-        loss_accum = 0.0
-        loss_fct = torch.nn.CrossEntropyLoss().cuda()
+        score_accumulated = 0.0
         model = self.model
         tokenizer = self.tokenizer
         embeddings_model = self.embeddings_model
-        model.to("cuda")
         for dataset in datasets:
             benchmark_dataset = get_benchmark_data(
                 dataset, n_samples, input_length, output_length
             )
-
-            for sample in benchmark_dataset.data:
+            ic("Calculating performance for dataset:", dataset)
+            for index, sample in enumerate(benchmark_dataset.data):
+                progress = str(f"{index}/{n_samples}")
+                ic(progress)
                 prompt = get_llm_prompt(sample.instruction, sample.prompt)
                 prompt_enc = tokenizer([prompt], return_tensors="pt")
                 prompt_enc.to("cuda")
+                model_output = model.generate(
+                    **prompt_enc,
+                    max_new_tokens=self.output_length,
+                    use_cache=False,
+                    output_hidden_states=False,
+                    output_attentions=False,
+                    pad_token_id=tokenizer.eos_token_id,
+                )
                 expected_answer = sample.chosen
                 expected_answer_enc = tokenizer(
                     [expected_answer],
@@ -181,7 +171,6 @@ class ModelModifier:
                 )
                 expected_answer_enc.to("cuda")
                 expected_answer_embs = embeddings_model(**expected_answer_enc)
-                # ic(expected_answer_embs)
                 rejected_answer = sample.rejected
                 rejected_answer_enc = tokenizer(
                     [rejected_answer],
@@ -192,52 +181,45 @@ class ModelModifier:
                 rejected_answer_enc.to("cuda")
                 rejected_answer_embs = embeddings_model(**rejected_answer_enc)
 
-                # Generate the model's output
-                # model_output = model(
-                #     prompt_enc.input_ids,
-                #     use_cache=False,
-                #     output_hidden_states=False,
-                #     output_attentions=False,
-                # )[0]
-                model_output = model.generate(
-                    **prompt_enc,
-                    max_new_tokens=self.output_length,
-                    use_cache=False,
-                    output_hidden_states=False,
-                    output_attentions=False,
+                input_length = len(prompt_enc["input_ids"][0])
+
+                # Slice the output to remove the input tokens
+                response_tokens = model_output[0][input_length:]
+
+                output_string = tokenizer.decode(
+                    response_tokens, skip_special_tokens=True
                 )
-                ic(model_output)
-                output_ids = model_output[0].argmax(dim=-1)
-                output_string = tokenizer.decode(output_ids, skip_special_tokens=True)
-                ic(output_string)
-                time.sleep(60)
-                model_output_embs = embeddings_model(**model_output)
+                answer_enc = tokenizer(
+                    [output_string],
+                    return_tensors="pt",
+                    padding="max_length",
+                    max_length=self.output_length,
+                )
+                answer_enc.to("cuda")
+                model_output_embs = embeddings_model(**answer_enc)
                 cosine_similarity_gain = get_cosine_embeddings(
                     model_output_embs, expected_answer_embs
                 )
+                score_accumulated += cosine_similarity_gain.item()
                 cosine_similarity_loss = get_cosine_embeddings(
                     model_output_embs, rejected_answer_embs
                 )
-                ic(cosine_similarity_gain, cosine_similarity_loss)
-                # rejection_score = self.calculate_cosine_similarity(
-                #     rejected_answer_enc, model_output
-                # )
-                # performance_scores.append(score)
-                # rejection_scores.append(rejection_score)
-                # Calculate the perplexity
-                # loss_accum += 1
-                # loss_accum += loss_fct(model_output, expected_answer_enc)
-                # model_output.to("cuda")
+                score_accumulated -= cosine_similarity_loss.item()
 
-                # ic(model_output)
-                # # expected_answer_enc.cuda()
-                # ic(type(expected_answer_enc), expected_answer_enc)
-                # loss = loss_fct(model_output, expected_answer_enc.input_ids)
-                # loss_accum += loss.item()
+                del (
+                    answer_enc,
+                    rejected_answer_enc,
+                    expected_answer_enc,
+                    prompt_enc,
+                    model_output_embs,
+                    expected_answer_embs,
+                    rejected_answer_embs,
+                    cosine_similarity_gain,
+                    cosine_similarity_loss,
+                )
+                torch.cuda.empty_cache()
 
-        avg_loss = loss_accum / (n_samples * len(datasets))
-        average_perplexity = torch.exp(torch.tensor(avg_loss)).item()
-        performance = -average_perplexity
+        performance = score_accumulated / (n_samples * len(datasets))
         return performance
 
     def assess_layers_snr(self, layer_types, layer_numbers):
@@ -284,7 +266,7 @@ class ModelModifier:
                 f"Tested Model Performance after modifying {layer}: {new_performance}"
             )
 
-            # If the perplexity does not improve significantly, revert the change
+            # If the performance does not improve, revert the change
             if new_performance <= initial_performance:
                 self.restore_model_original_layer(
                     layer_type=layer_type, layer_number=layer_number
@@ -296,7 +278,7 @@ class ModelModifier:
             else:
                 initial_performance = new_performance
                 print(
-                    f"Modification kept for {layer}. New baseline perplexity: {initial_performance}",
+                    f"Modification kept for {layer}. New baseline performance: {initial_performance}",
                     flush=True,
                 )
 

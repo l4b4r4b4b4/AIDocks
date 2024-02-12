@@ -50,7 +50,7 @@ def get_orca_dpo(n_samples, input_length, output_length) -> Dataset:
             and (len(example["chosen"]) <= output_length)
             and (len(example["rejected"]) <= output_length)
         )
-        .shuffle(seed=random.randint(0, 10000))
+        # .shuffle(seed=random.randint(0, 10000))
         .select(range(n_samples))
     )
 
@@ -84,7 +84,7 @@ def get_ultrafeedback(n_samples, input_length, output_length) -> Dataset:
             and (len(example["chosen"][0]["content"]) <= output_length)
             and (len(example["rejected"][0]["content"]) <= output_length)
         )
-        .shuffle(seed=random.randint(0, 10000))
+        # .shuffle(seed=random.randint(0, 10000))
         .select(range(n_samples))
     )
 
@@ -120,7 +120,8 @@ def get_openhermes(n_samples, input_length, output_length) -> Dataset:
             )
             and (len(example["output"]) <= output_length)
         )
-        .shuffle(seed=random.randint(0, 10000))
+        # TODO shuffle actually good?
+        # .shuffle(seed=random.randint(0, 10000))
         .select(range(n_samples))
     )
 
