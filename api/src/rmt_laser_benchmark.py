@@ -14,7 +14,6 @@ import torch.nn.functional as F
 
 from src.AutoModelForSentenceEmbedding import (
     AutoModelForSentenceEmbedding,
-    get_loss,
     get_cosine_embeddings,
 )
 import time
@@ -25,6 +24,7 @@ class ModelModifier:
         self,
         model_name,
         prompt_template: PromptTemplate = PromptTemplate.chatml,
+        # TODO Infer input and output length from datasets
         input_length=512,
         output_length=512,
     ):
@@ -34,7 +34,7 @@ class ModelModifier:
             model_name, torch_dtype=torch.bfloat16, device_map={"": 0}
         )
         self.tokenizer = AutoTokenizer.from_pretrained(
-            model_name, torch_dtype=torch.bfloat16, use_fast=True
+            model_name, use_fast=True
         )
         self.layer_snr = {}
         self.modified_layers = set()
@@ -135,9 +135,9 @@ class ModelModifier:
     def calculate_model_performance(
         self,
         datasets=["orca_dpo", "ultrafeedback"],  # "openhermes"
-        n_samples=64,
-        input_length=1024,
-        output_length=1024,
+        n_samples=128,
+        input_length=512,
+        output_length=512,
     ):
         score_accumulated = 0.0
         model = self.model
