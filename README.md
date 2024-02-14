@@ -37,7 +37,7 @@ In very early development stage. So feedback and contributions are highly apprec
 ## Quick Start
 
 ```bash
-git clone https://github.com/l4b4r4b4b4/AIDocks
+git clone --recurse-submodules https://github.com/l4b4r4b4b4/AIDocks
 cd AIDocks
 docker-compose up -d && \
 docker-compose ps && \
