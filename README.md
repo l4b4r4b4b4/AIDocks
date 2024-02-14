@@ -6,7 +6,7 @@ The AI Trainer's Dry Dock.
 - 🚀 Fine-Tune **E**mbeddings, **R**e**R**ankerings & **L**arge **L**anguage **M**odels (LLMs), 
 - 🚀 Dataset templates,
 - 🚀 Build-Your-Own Mixture-of-Experts (MoE),
-- 🚀 Optimize LLMs with LASER-Random Matrix Theory, 
+- 🚀 Benchmark & Perplexity based LLMs noise detection in weight matrices with LASER-Random Matrix Theory, 
 - 🚀 Quantize models for optimal model size &
 - 🚀 Publish models to 🤗 HuggingFace Hub.
 
