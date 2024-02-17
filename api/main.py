@@ -120,7 +120,7 @@ async def application_health():
 
 class DoraInput(BaseModel):
     input_dim: int = 10
-    output_dim: int = 1
+    learning_rate: int = 0.001
     base_model: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     datasets: List[str] = ["wikitext", "wikitext-2", "wikitext-103"]
 
@@ -131,8 +131,9 @@ async def dora_endpoint(
     background_tasks: BackgroundTasks,
 ):
     input_dim = request_body.input_dim
+    learning_rate = request_body.learning_rate
     base_model = request_body.base_model
-    background_tasks.add_task(dora, input_dim, base_model, datasets)
+    background_tasks.add_task(dora, learning_rate, input_dim, base_model, datasets)
 
     return request_body
 
