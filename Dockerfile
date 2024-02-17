@@ -7,7 +7,7 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # Update system packages and install build dependencies
 RUN apt-get update && \      
     apt-get upgrade -y && \    
-    apt-get install -y git build-essential  && \    
+    apt-get install -y git build-essential g++ && \    
     apt-get clean    
 
 RUN pip install packaging wheel
@@ -40,4 +40,4 @@ RUN mkdir -p models/llm && \
     mkdir -p models/emb && \
     mkdir -p models/rr
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "5"]  
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]  

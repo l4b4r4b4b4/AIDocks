@@ -50,6 +50,8 @@ from peft import (
     TaskType,
 )
 from torch.utils.data import DataLoader
+
+from src.dora import dora
 import math
 import evaluate
 from tqdm import tqdm
@@ -58,6 +60,21 @@ from tqdm import tqdm
 os.environ["WANDB_DISABLED"] = "true"
 logger = get_logger(__name__)
 model_output_dir = "models"
+import torch
+import warnings
+
+gpu_ok = False
+if torch.cuda.is_available():
+    device_cap = torch.cuda.get_device_capability()
+    if device_cap in ((7, 0), (8, 0), (9, 0)):
+        gpu_ok = True
+
+if not gpu_ok:
+    warnings.warn(
+        "GPU is not NVIDIA V100, A100, or H100. Speedup numbers may be lower "
+        "than expected."
+    )
+
 if torch.cuda.is_available():
     device = torch.device("cuda")
     print("There are %d GPU(s) available." % torch.cuda.device_count())
@@ -98,7 +115,26 @@ app = FastAPI(
 @app.get("/")
 async def application_health():
     ic("GET /")
-    return {"msg": "This is AIDocks https://github.com/l4b4r4b4b4/ai-docks"}
+    return {"msg": "This is AIDocks https://github.com/Holocene Intelligence/ai-docks"}
+
+
+class DoraInput(BaseModel):
+    input_dim: int = 10
+    output_dim: int = 1
+    base_model: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    datasets: List[str] = ["wikitext", "wikitext-2", "wikitext-103"]
+
+
+@app.post("/dora")
+async def dora_endpoint(
+    request_body: DoraInput,
+    background_tasks: BackgroundTasks,
+):
+    input_dim = request_body.input_dim
+    base_model = request_body.base_model
+    background_tasks.add_task(dora, input_dim, base_model, datasets)
+
+    return request_body
 
 
 class ModelType(str, Enum):
@@ -192,7 +228,7 @@ async def training_endpoint(
             background_tasks.add_task(run_dpo_training, request_body)
         elif train_method == "sft":
             background_tasks.add_task(run_sft_training, request_body)
-    # TODO combined retrieval & generation fine-tuning 
+    # TODO combined retrieval & generation fine-tuning
     return {"message": "Training is running in the background ..."}
 
 
@@ -845,7 +881,7 @@ async def run_laser(request_body: LaserInput):
     # load_in_8bit = request_body.load_in_8bit
     seqlen = request_body.seqlen
     modifier = ModelModifier(
-        base_model_name, seqlen=seqlen #, load_in_8bit=load_in_8bit
+        base_model_name, seqlen=seqlen  # , load_in_8bit=load_in_8bit
     )
     # TODO get max n layers from model config
     layer_numbers = list(range(request_body.top_k_layers, -1, -1))
@@ -869,7 +905,9 @@ async def run_laser(request_body: LaserInput):
 
     modifier.test_and_modify_layers(top_k_layers)
     modifier.save_model(str(f"models/llm/{laser_model_name}"))
-    finish_msg = f"Model {laser_model_name} is ready for use at `models/llm/{laser_model_name}`"
+    finish_msg = (
+        f"Model {laser_model_name} is ready for use at `models/llm/{laser_model_name}`"
+    )
     ic(finish_msg)
     return "ok"
 
@@ -1190,7 +1228,7 @@ def run_publish(input: PublishInput):
     local_model_name = input.local_model_name
     pub_model_name = input.pub_model_name
     revision_tag = input.revision_tag
-    
+
     start_msg = str(
         f"Publishing {local_model_name} to HuggingFace Hub as {pub_model_name} ..."
     )
