@@ -40,4 +40,5 @@ RUN mkdir -p models/llm && \
     mkdir -p models/emb && \
     mkdir -p models/rr
 
+# CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]  
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "5"]  

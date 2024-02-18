@@ -1,9 +1,10 @@
 from fastapi import FastAPI, BackgroundTasks, Path, HTTPException
 import torch
 from pydantic import BaseModel
+from src.rmt_laser_snr import ModelModifier as ModelModifierPerplexity
+from src.rmt_laser_benchmark import ModelModifier as ModelModifierBenchmark
 from typing import Optional, List
 from icecream import ic
-from src.rmt_laser_snr import ModelModifier
 import yaml
 import json
 import subprocess
@@ -192,7 +193,7 @@ async def training_endpoint(
             background_tasks.add_task(run_dpo_training, request_body)
         elif train_method == "sft":
             background_tasks.add_task(run_sft_training, request_body)
-    # TODO combined retrieval & generation fine-tuning 
+    # TODO combined retrieval & generation fine-tuning
     return {"message": "Training is running in the background ..."}
 
 
@@ -825,11 +826,17 @@ def run_sft_training(input: LLMTrainingInput):
     ic(trainer_stats)
 
 
+class LaserMode(str, Enum):
+    benchmark = "benchmark"
+    perplexity = "perplexity"
+
+
 class LaserInput(BaseModel):
     base_model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     laser_model_name: str = "TinyLlama-1.1B-Chat-v1.0-Laser"
     top_k_layers: Optional[int] = 2
     seqlen: Optional[int] = 128
+    mode: Optional[LaserMode] = LaserMode.benchmark
     # load_in_8bit: Optional[bool] = False
 
 
@@ -842,11 +849,13 @@ async def laser_llm(request_body: LaserInput, background_tasks: BackgroundTasks)
 async def run_laser(request_body: LaserInput):
     base_model_name = request_body.base_model_name
     laser_model_name = request_body.laser_model_name
+    mode = request_body.mode
     # load_in_8bit = request_body.load_in_8bit
     seqlen = request_body.seqlen
-    modifier = ModelModifier(
-        base_model_name, seqlen=seqlen #, load_in_8bit=load_in_8bit
-    )
+    if mode.value == "benchmark":
+        modifier = ModelModifierBenchmark(base_model_name)
+    elif mode.value == "perplexity":
+        modifier = ModelModifierPerplexity(base_model_name, seqlen=seqlen)
     # TODO get max n layers from model config
     layer_numbers = list(range(request_body.top_k_layers, -1, -1))
     layer_numbers = [f".{l}." for l in layer_numbers]
@@ -869,7 +878,9 @@ async def run_laser(request_body: LaserInput):
 
     modifier.test_and_modify_layers(top_k_layers)
     modifier.save_model(str(f"models/llm/{laser_model_name}"))
-    finish_msg = f"Model {laser_model_name} is ready for use at `models/llm/{laser_model_name}`"
+    finish_msg = (
+        f"Model {laser_model_name} is ready for use at `models/llm/{laser_model_name}`"
+    )
     ic(finish_msg)
     return "ok"
 
@@ -1190,7 +1201,7 @@ def run_publish(input: PublishInput):
     local_model_name = input.local_model_name
     pub_model_name = input.pub_model_name
     revision_tag = input.revision_tag
-    
+
     start_msg = str(
         f"Publishing {local_model_name} to HuggingFace Hub as {pub_model_name} ..."
     )

@@ -5,33 +5,33 @@ networks:
     driver: bridge
 
 services:
-  webapp:
-    build:
-      context: ./webapp
-      dockerfile: Dockerfile.dev
-    environment:
-      - AUTH_SECRET=${APP_AUTH_SECRET}
-      - NEXTAUTH_URL=${DOMAIN}
-    env_file:
-      - .env
-    tty: true # enable colorized logs
-    volumes:
-      - ./webapp/:/usr/src/app/
-      - hf-cache:/.hf-cache
-    logging:
-      options:
-        max-size: "100m"
-        max-file: "10"
-    restart: always
-    networks:
-      - ai-docks-net
-    ports:
-      - 3333:3000
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://webapp:80/"]
-      interval: 1m
-      timeout: 20m
-      retries: 20
+  # webapp:
+  #   build:
+  #     context: ./webapp
+  #     dockerfile: Dockerfile.dev
+  #   environment:
+  #     - AUTH_SECRET=${APP_AUTH_SECRET}
+  #     - NEXTAUTH_URL=${DOMAIN}
+  #   env_file:
+  #     - .env
+  #   tty: true # enable colorized logs
+  #   volumes:
+  #     - ./webapp/:/usr/src/app/
+  #     - hf-cache:/.hf-cache
+  #   logging:
+  #     options:
+  #       max-size: "100m"
+  #       max-file: "10"
+  #   restart: always
+  #   networks:
+  #     - ai-docks-net
+  #   ports:
+  #     - 3333:3000
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://webapp:80/"]
+  #     interval: 1m
+  #     timeout: 20m
+  #     retries: 20
 
   ai-docks-service:
     volumes:
@@ -57,6 +57,7 @@ services:
     container_name: ai-docks
     build:
       context: .
+      dockerfile: Dockerfile
     ports:
       - 8723:80
     networks:
@@ -74,7 +75,7 @@ services:
       timeout: 20m
       retries: 20
 
-  llm-inference:
+  vision:
     deploy:
       replicas: 0
       resources:
@@ -84,97 +85,140 @@ services:
               count: 1
               capabilities: [gpu]
     volumes:
-      - ./api/models/llm:/models/
       - hf-cache:/.hf-cache
     restart: always
     runtime: nvidia
     env_file:
       - .env
-    # container_name: llm-inference
+    container_name: llava
     tty: true # enable colorized logs
     build:
-      context: ./llm-inference
+      context: ./llava
+      dockerfile: Dockerfile.small
     ports:
-      - 8045:80
+      - 8045:8888
+      - 8046:10000
+      - 8047:40000
     networks:
       - ai-docks-net
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
-      - TOKENIZERS_PARALLELISM=true
+      - CUDA_VISIBLE_DEVICES=0
+      - MODEL_PATH=liuhaotian/llava-v1.6-mistral-7b
+      - LOAD_4BIT=true # true | false
+      - HF_HOME=/.hf-cache
     ipc: host
-    command: [
-        "--model",
-        "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-        # "--revision",
-        # "gptq-4bit-32g-actorder_True",
-        # "--dtype",
-        # "float16",
-        "--block-size",
-        "32",
-        # "--max-model-len=32768",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "80",
-        # "--served-model-name",
-        # "gpt-3.5-turbo",
-        # "--swap-space",
-        # "84",
-        # "--max-num-seqs",
-        # "16",
-        # "--max-paddings",
-        # "16",
-        # "--trust-remote-code",
-        # "--seed",
-        # "42",
-        # # "--enforce-eager",
-        # # "--max-parallel-loading-workers",
-        # # "7",
-        # "--gpu-memory-utilization",
-        # "0.8",
-        # "--max-num-batched-tokens",
-        # "20480",
-      ]
     logging:
       options:
         max-size: "100m"
         max-file: "10"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://llm-inference:80/"]
+      test: ["CMD", "curl", "-f", "http://vision:10000/"]
       interval: 1m
       timeout: 20m
       retries: 20
 
-  vector-store:
-    tty: true # enable colorized logs
-    ipc: host
-    build:
-      context: ./vector-store
-      dockerfile: Dockerfile
-    volumes:
-      - ./vector-store:/chroma
-      - index_data:/index_data
-      - embeddings-data:/chroma/chroma
-    command: uvicorn chromadb.app:app --reload --workers 32 --host 0.0.0.0 --port 8000
-    #--log-config log_config.yml
-    environment:
-      - ANONYMIZED_TELEMETRY=False
-      - IS_PERSISTENT=TRUE
-      - NVIDIA_VISIBLE_DEVICES=all
-    networks:
-      - ai-docks-net
-    env_file:
-      - .env
-    container_name: vector-store
-    logging:
-      options:
-        max-size: "100m"
-        max-file: "10"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://chroma:8000/api/v1/heartbeat"]
-      interval: 1m
-      timeout: 20m
-      retries: 20
+  # llm-inference:
+  #   deploy:
+  #     replicas: 0
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   volumes:
+  #     - ./api/models/llm:/models/
+  #     - hf-cache:/.hf-cache
+  #   restart: always
+  #   runtime: nvidia
+  #   env_file:
+  #     - .env
+  #   # container_name: llm-inference
+  #   tty: true # enable colorized logs
+  #   build:
+  #     context: ./llm-inference
+  #   ports:
+  #     - 8045:80
+  #   networks:
+  #     - ai-docks-net
+  #   environment:
+  #     - NVIDIA_VISIBLE_DEVICES=all
+  #     - TOKENIZERS_PARALLELISM=true
+  #   ipc: host
+  #   command: [
+  #       "--model",
+  #       "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+  #       # "--revision",
+  #       # "gptq-4bit-32g-actorder_True",
+  #       # "--dtype",
+  #       # "float16",
+  #       "--block-size",
+  #       "32",
+  #       # "--max-model-len=32768",
+  #       "--host",
+  #       "0.0.0.0",
+  #       "--port",
+  #       "80",
+  #       # "--served-model-name",
+  #       # "gpt-3.5-turbo",
+  #       # "--swap-space",
+  #       # "84",
+  #       # "--max-num-seqs",
+  #       # "16",
+  #       # "--max-paddings",
+  #       # "16",
+  #       # "--trust-remote-code",
+  #       # "--seed",
+  #       # "42",
+  #       # # "--enforce-eager",
+  #       # # "--max-parallel-loading-workers",
+  #       # # "7",
+  #       # "--gpu-memory-utilization",
+  #       # "0.8",
+  #       # "--max-num-batched-tokens",
+  #       # "20480",
+  #     ]
+  #   logging:
+  #     options:
+  #       max-size: "100m"
+  #       max-file: "10"
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://llm-inference:80/"]
+  #     interval: 1m
+  #     timeout: 20m
+  #     retries: 20
+
+  # vector-store:
+  #   tty: true # enable colorized logs
+  #   ipc: host
+  #   build:
+  #     context: ./vector-store
+  #     dockerfile: Dockerfile
+  #   volumes:
+  #     - ./vector-store:/chroma
+  #     - index_data:/index_data
+  #     - embeddings-data:/chroma/chroma
+  #   command: uvicorn chromadb.app:app --reload --workers 32 --host 0.0.0.0 --port 8000
+  #   #--log-config log_config.yml
+  #   environment:
+  #     - ANONYMIZED_TELEMETRY=False
+  #     - IS_PERSISTENT=TRUE
+  #     - NVIDIA_VISIBLE_DEVICES=all
+  #   networks:
+  #     - ai-docks-net
+  #   env_file:
+  #     - .env
+  #   container_name: vector-store
+  #   logging:
+  #     options:
+  #       max-size: "100m"
+  #       max-file: "10"
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://chroma:8000/api/v1/heartbeat"]
+  #     interval: 1m
+  #     timeout: 20m
+  #     retries: 20
 
 volumes:
   hf-cache:
