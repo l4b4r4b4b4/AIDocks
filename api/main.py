@@ -119,10 +119,14 @@ async def application_health():
 
 
 class DoraInput(BaseModel):
-    input_dim: int = 10
-    learning_rate: int = 0.001
+    load_in_8bit: bool = False
+    batch_size: int = 64
+    max_input_length: int = 512
+    max_output_length: int = 512
+    epochs: int = 100
+    learning_rate: float = 0.001
     base_model: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-    datasets: List[str] = ["wikitext", "wikitext-2", "wikitext-103"]
+    datasets: List[str] = ["orca_dpo", "ultrafeedback", "openhermes"]
 
 
 @app.post("/dora")
@@ -130,10 +134,24 @@ async def dora_endpoint(
     request_body: DoraInput,
     background_tasks: BackgroundTasks,
 ):
-    input_dim = request_body.input_dim
+    load_in_8bit = request_body.load_in_8bit
     learning_rate = request_body.learning_rate
     base_model = request_body.base_model
-    background_tasks.add_task(dora, learning_rate, input_dim, base_model, datasets)
+    batch_size = request_body.batch_size
+    max_input_length = request_body.max_input_length
+    max_output_length = request_body.max_output_length
+    epochs = request_body.epochs
+    background_tasks.add_task(
+        dora,
+        learning_rate,
+        load_in_8bit,
+        batch_size,
+        base_model,
+        max_input_length,
+        max_output_length,
+        epochs,
+        datasets,
+    )
 
     return request_body
 

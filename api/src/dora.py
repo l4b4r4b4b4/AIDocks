@@ -1,36 +1,112 @@
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
-
+from torch.utils.data import DataLoader, TensorDataset, Dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing import List
+import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-import math
+from icecream import ic
+from src.AutoModelForSentenceEmbedding import (
+    AutoModelForSentenceEmbedding,
+)
 
 torch.manual_seed(0)
-from typing import List
-# This layer is dropped into your pre-trained PyTorch model where nn.Linear is used
-class LoRALayer(nn.Module):
-    def __init__(self, d_in, d_out, rank=4, weight=None, bias=None):
-        super().__init__()
 
-        if weight is not None:
-            self.weight = nn.Parameter(weight, requires_grad=False)
-        else:
-            self.weight = nn.Parameter(torch.Tensor(d_out, d_in), requires_grad=False)
+from enum import Enum
 
-        if bias is not None:
-            self.bias = nn.Parameter(bias, requires_grad=False)
-        else:
-            self.bias = nn.Parameter(torch.Tensor(d_out), requires_grad=False)
 
-        std_dev = 1 / torch.sqrt(torch.tensor(rank).float())
-        self.lora_A = nn.Parameter(torch.randn(d_out, rank)*std_dev)
-        self.lora_B = nn.Parameter(torch.zeros(rank, d_in))
+class PromptTemplate(str, Enum):
+    chatml = "chatml"
+    instruct = "instruct"
+    tiny_llama = "tiny_llama"
 
-    def forward(self, x):
-        lora = torch.matmul(self.lora_A, self.lora_B)
-        return F.linear(x, self.weight + lora, self.bias)
+
+def get_llm_prompt(
+    system_instruction,
+    user_prompt="",
+    prompt_format: PromptTemplate = PromptTemplate.chatml,
+    sep=" ",
+):
+    if prompt_format == PromptTemplate.chatml:
+        return f"""<|im_start|>system
+{system_instruction}<|im_end|>
+<|im_start|>user
+{user_prompt}<|im_end|>
+<|im_start|>assistant
+"""
+    elif prompt_format == PromptTemplate.tiny_llama:
+        return f"""<|system|>
+{system_instruction}</s>
+<|user|>
+{user_prompt}</s>
+<|assistant|>
+"""
+    elif prompt_format == PromptTemplate.instruct:
+        if user_prompt != "":
+            system_instruction = system_instruction + sep + user_prompt
+
+        return f"[INST] {system_instruction} [/INST]"
+
+    else:
+        raise Exception('prompt_format must be "chatml" or "mixtral"')
+
+
+class TextDataset(Dataset):
+    def __init__(
+        self,
+        prompts,
+        answers,
+        labels,
+        tokenizer,
+        max_input_length=256,
+        max_output_length=256,
+    ):
+        self.max_input_length = max_input_length
+        self.max_output_length = max_output_length
+        self.prompts = prompts
+        self.answers = answers
+        self.labels = labels
+        self.tokenizer = tokenizer
+
+    def __getitem__(self, index):
+        prompt = self.prompts[index]
+        answer = self.answers[index]
+        label = self.labels[index]
+
+        # Tokenize the prompt and answer separately
+        encoded_prompt = self.tokenizer.encode_plus(
+            prompt,
+            truncation=True,
+            padding="max_length",
+            max_length=self.max_input_length,
+        )
+        encoded_answer = self.tokenizer.encode_plus(
+            answer,
+            truncation=True,
+            padding="max_length",
+            max_length=self.max_output_length,
+        )
+
+        return {
+            "prompt_input_ids": torch.tensor(
+                encoded_prompt["input_ids"], dtype=torch.long
+            ),
+            "prompt_attention_mask": torch.tensor(
+                encoded_prompt["attention_mask"], dtype=torch.long
+            ),
+            "answer_input_ids": torch.tensor(
+                encoded_answer["input_ids"], dtype=torch.long
+            ),
+            "answer_attention_mask": torch.tensor(
+                encoded_answer["attention_mask"], dtype=torch.long
+            ),
+            "label": torch.tensor(label, dtype=torch.float),
+        }
+
+    def __len__(self):
+        return len(self.prompts)
+
 
 # This layer is dropped into your pre-trained PyTorch model where nn.Linear is used
 class DoRALayer(nn.Module):
@@ -49,9 +125,9 @@ class DoRALayer(nn.Module):
 
         # m = Magnitude column-wise across output dimension
         self.m = nn.Parameter(self.weight.norm(p=2, dim=0, keepdim=True))
-        
+
         std_dev = 1 / torch.sqrt(torch.tensor(rank).float())
-        self.lora_A = nn.Parameter(torch.randn(d_out, rank)*std_dev)
+        self.lora_A = nn.Parameter(torch.randn(d_out, rank) * std_dev)
         self.lora_B = nn.Parameter(torch.zeros(rank, d_in))
 
     def forward(self, x):
@@ -62,95 +138,58 @@ class DoRALayer(nn.Module):
         calc_weights = self.m * norm_adapted
         return F.linear(x, calc_weights, self.bias)
 
-def round_up_sqrt(m):
-    sm = int(m ** 0.5 + 0.5)
-    while sm*sm > m:
-        sm -= 1
-    while sm*sm < m:
-        sm += 1
-    return sm
-
-# Stacked Kronecker-product Layers https://openreview.net/pdf?id=ZjGr1tMVbjw
-# Uses 2r*sqrt(nm) parameters instead of nm.
-# For for n=512 x m=2048, r must be 256 or less to make it worthwhile.
-class SKLinearLayer(nn.Module):
-    def __init__(self, d_in, d_out, rank=4, weight=None, bias=None):
-        super().__init__()
-
-        if weight is not None:
-            self.weight = nn.Parameter(weight, requires_grad=False)
-        else:
-            self.weight = nn.Parameter(torch.Tensor(d_out, d_in), requires_grad=False)
-
-        if bias is not None:
-            self.bias = nn.Parameter(bias, requires_grad=False)
-        else:
-            self.bias = nn.Parameter(torch.Tensor(d_out), requires_grad=False)
-
-        self.n = d_in
-        self.m = d_out
-        self.sn = round_up_sqrt(self.n)
-        self.np = self.sn * self.sn # n rounded up to next square
-        self.sm = round_up_sqrt(self.m)
-        self.mp = self.sm * self.sm # m rounded up to next square
-        k = self.sn * self.sm
-
-        # Initialize A and B using Kaiming initialization
-        self.A = nn.Parameter(torch.empty(k, rank))
-        nn.init.kaiming_uniform_(self.A, a=math.sqrt(5)) # a is the parameter for the ReLU
-        self.B = nn.Parameter(torch.zeros(rank, k))
-
-    def forward(self, x):
-        # Validate that the inputs are of the expected sizes
-        if x.size(-1) != self.n:
-            raise ValueError("Input vector must have size n")
-
-        S = torch.matmul(self.A, self.B).reshape(self.sn, self.sm, self.sn, self.sm).transpose(2, 1).reshape(self.mp, self.np)
-        S_truncated = S[:self.m, :self.n]
-
-        return F.linear(x, self.weight + S_truncated, self.bias)
-
-
-# Basic MLP feed-forward network like in transformers
-class FeedForward(nn.Module):
-    def __init__(self, d_in, d_out, mult=4):
-        super(FeedForward, self).__init__()
-
-        self.d_in = d_in
-        self.d_out = d_out
-        self.mult = mult
-
-        hidden_size = d_in * mult
-        self.net = nn.Sequential(
-            nn.Linear(d_in, hidden_size),
-            nn.GELU(),
-            nn.Linear(hidden_size, d_out)
-        )
-
-    def forward(self, x):
-        return self.net(x)
-
-# Generating synthetic data
-def generate_data(num_samples=100, input_dim=10):
-    X = torch.randn(num_samples, input_dim)
-    y = torch.sum(X, dim=1, keepdim=True)  # Simple relationship for demonstration
-    return X, y
 
 # Training function
-def train(model, criterion, optimizer, data_loader, epochs=5):
+# @torch.compile
+def train(
+    model,
+    tokenizer,
+    embeddings_model,
+    criterion,
+    optimizer,
+    data_loader,
+    max_input_length,
+    max_output_length,
+    epochs=5,
+):
     model.train()
     for epoch in range(epochs):
-        for inputs, targets in data_loader:
+        print(f"Starting epoch {epoch+1} ...")
+        for sample in data_loader:
             optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
-            loss.backward()
-            optimizer.step()
-        #print(f"Epoch {epoch+1}, Loss: {loss.item()}")
+            # outputs = model(sample["prompt_input_ids"].to("cuda"))
+            input_ids = sample["prompt_input_ids"].to("cuda")
+            outputs = model.generate(
+                input_ids,
+                num_return_sequences=1,
+                use_cache=False,
+                output_hidden_states=False,
+                output_attentions=False,
+                pad_token_id=tokenizer.eos_token_id,
+                
+                # max_length=max_input_length + max_output_length,
+            )  # max_length=100,
+            # ic(type(outputs), outputs)
+            input_length = len(input_ids[0])
+            # Slice the output to remove the input tokens
+            response_tokens = outputs[0][input_length:]
+
+            output_string = tokenizer.decode(response_tokens, skip_special_tokens=True)
+            ic(output_string)
+            # Convert logits to token IDs
+            # answer_enc = tokenizer(
+            #     [output_string],
+            #     return_tensors="pt",
+            #     padding="max_length",
+            #     max_length=self.output_length,
+            # )
+            # loss = criterion(logits, answers, labels)
+            # loss.backward()
+            # optimizer.step()
+        # print(f"Epoch {epoch+1}, Loss: {loss.item()}")
 
 
-
-def replace_linear_with_dora(model, layer_class):
+def replace_linear_with_dora(model):
     for name, module in model.named_children():
         if isinstance(module, nn.Linear):
             # Get the input and output dimensions of the current nn.Linear layer
@@ -158,36 +197,105 @@ def replace_linear_with_dora(model, layer_class):
             d_out = module.out_features
 
             # Create a new DoRALayer with the same dimensions
-            setattr(model, name, layer_class(d_out=d_out, d_in=d_in, weight=module.weight.data.clone(), bias=module.bias.data.clone()))
+            setattr(
+                model,
+                name,
+                DoRALayer(
+                    d_out=d_out,
+                    d_in=d_in,
+                    weight=module.weight.data.clone(),
+                    bias=module.bias.data.clone(),
+                ),
+            )
         else:
             # Recursively apply this function to submodules
-            replace_linear_with_dora(module, layer_class)
+            replace_linear_with_dora(module)
+
 
 def print_model_parameters(model):
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    
+
     print(f"Total Parameters: {total_params}")
     print(f"Trainable Parameters: {trainable_params}")
 
-def copy_model(model):
-    cloned_model = FeedForward(model.d_in, model.d_out, model.mult)
 
-    cloned_model.load_state_dict(model.state_dict())
+def dora(
+    learning_rate=0.001,
+    load_in_8bit=False,
+    batch_size=64,
+    base_model_path="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    max_input_length=256,
+    max_output_length=256,
+    epochs=100,
+    datasets: List[str] = ["orca_dpo", "ultrafeedback", "openhermes"],
+):
+    model = torch.compile(
+        AutoModelForCausalLM.from_pretrained(
+            base_model_path,
+            torch_dtype=torch.bfloat16,
+            device_map={"": 0},
+            trust_remote_code=True,
+            load_in_8bit=load_in_8bit,
+        )
+    )
+    tokenizer = AutoTokenizer.from_pretrained(
+        base_model_path, use_fast=True, trust_remote_code=True
+    )
+    embeddings_model = AutoModelForSentenceEmbedding(model, tokenizer)
+    # criterion = nn.MSELoss()
+    criterion = nn.CosineEmbeddingLoss()
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
+    labels = [random.randint(0, 1) for _ in range(100)]
 
-    return cloned_model
+    dataset = TextDataset(
+        prompts=[
+            get_llm_prompt(
+                system_instruction="You are a friendly chatbot who answers the user's questions truthfully.",
+                user_prompt="What is the color of blood?",
+                prompt_format=PromptTemplate.tiny_llama,
+            )
+        ]
+        * 200,
+        answers=["red"] * 100 + ["green"] * 100,
+        labels=[1] * 100 + [0] * 100,
+        tokenizer=tokenizer,
+        max_input_length=max_input_length,
+        max_output_length=max_output_length,
+    )
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-def continue_training(model, layer_class, name, data_loader):
-    model = copy_model(model)
+    print_model_parameters(model)
 
-    replace_linear_with_dora(model, layer_class)
+    train(
+        model,
+        tokenizer,
+        embeddings_model,
+        criterion,
+        optimizer,
+        data_loader,
+        max_input_length,
+        max_output_length,
+        epochs=epochs,
+    )
+
+    # Evaluate the model
+    model.eval()
+    with torch.no_grad():
+        inputs, responses, targets = next(iter(data_loader))
+        predictions = model(inputs)
+        loss = criterion(predictions, responses, targets)
+        print(f"Final Evaluation Loss: {loss.item()}")
+
+    replace_linear_with_dora(model)
 
     print_model_parameters(model)
 
     # Continue training with the Dora model
-    criterion = nn.MSELoss()
-    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001)
-    print(f"Continuing training with {name} layers...")
+    optimizer = optim.AdamW(
+        filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate
+    )
+    print("Continuing training with DoRA layers...")
     train(model, criterion, optimizer, data_loader, epochs=5)  # Continue training
 
     # Evaluate the model
@@ -196,36 +304,4 @@ def continue_training(model, layer_class, name, data_loader):
         inputs, targets = next(iter(data_loader))
         predictions = model(inputs)
         loss = criterion(predictions, targets)
-        print(f"Final ({name}) Evaluation Loss: {loss.item()}")
-
-# Main script
-def dora(
-    learning_rate=0.001,
-    input_dim=10,
-    base_model_path="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-    datasets: List[str] = ["wikitext", "wikitext-2", "wikitext-103"],
-):
-    input_dim, output_dim = 10, 1
-    model = FeedForward(input_dim, output_dim)
-    criterion = nn.MSELoss()
-    optimizer = optim.AdamW(model.parameters(), lr=0.001)
-
-    X, y = generate_data(num_samples=1000, input_dim=input_dim)
-    dataset = TensorDataset(X, y)
-    data_loader = DataLoader(dataset, batch_size=64, shuffle=True)
-
-    print_model_parameters(model)
-
-    train(model, criterion, optimizer, data_loader, epochs=100)
-
-    # Evaluate the model
-    model.eval()
-    with torch.no_grad():
-        inputs, targets = next(iter(data_loader))
-        predictions = model(inputs)
-        loss = criterion(predictions, targets)
-        print(f"Final Evaluation Loss: {loss.item()}")
-
-    continue_training(model, LoRALayer, "LoRA", data_loader)
-    continue_training(model, DoRALayer, "DoRA", data_loader)
-    continue_training(model, SKLinearLayer, "SKL", data_loader)
+        print(f"Final (DoRA) Evaluation Loss: {loss.item()}")

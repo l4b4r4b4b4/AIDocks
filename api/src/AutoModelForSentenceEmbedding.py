@@ -19,12 +19,10 @@ def get_loss(cosine_score, labels):
 
 
 class AutoModelForSentenceEmbedding(nn.Module):
-    def __init__(self, model_name, tokenizer, normalize=True):
+    def __init__(self, model, tokenizer, normalize=True):
         super(AutoModelForSentenceEmbedding, self).__init__()
 
-        self.model = AutoModel.from_pretrained(
-            model_name, trust_remote_code=True
-        )  # , load_in_8bit=True, device_map={"":0})
+        self.model = model
         self.model.to("cuda")
         self.normalize = normalize
         self.tokenizer = tokenizer
