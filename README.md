@@ -45,6 +45,12 @@ docker-compose logs -f
 ```
 
 Go to the [interactive API documentation](http://localhost:8723/docs) to explore all available endpoints & features!
+## Services
+## Docks WebApp
+### Docks API 
+### Vision
+Llava 1.6 service incl. [Gradio Frontend](http://localhost:8045), [Controller](http://localhost:8046) & [Model Worker](http://localhost:8047)
+## llm-inference
 
 ## Endpoints 🚀
 The following endpoints are exposed:
