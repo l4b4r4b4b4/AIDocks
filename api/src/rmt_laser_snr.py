@@ -15,7 +15,7 @@ class ModelModifier:
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name, torch_dtype=torch.bfloat16, device_map={"": 0}
         )
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
         self.layer_snr = {}
         self.modified_layers = set()
         self.original_weights = {}

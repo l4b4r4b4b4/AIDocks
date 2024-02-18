@@ -51,6 +51,8 @@ from peft import (
     TaskType,
 )
 from torch.utils.data import DataLoader
+
+from src.dora import dora
 import math
 import evaluate
 from tqdm import tqdm
@@ -59,6 +61,21 @@ from tqdm import tqdm
 os.environ["WANDB_DISABLED"] = "true"
 logger = get_logger(__name__)
 model_output_dir = "models"
+import torch
+import warnings
+
+gpu_ok = False
+if torch.cuda.is_available():
+    device_cap = torch.cuda.get_device_capability()
+    if device_cap in ((7, 0), (8, 0), (9, 0)):
+        gpu_ok = True
+
+if not gpu_ok:
+    warnings.warn(
+        "GPU is not NVIDIA V100, A100, or H100. Speedup numbers may be lower "
+        "than expected."
+    )
+
 if torch.cuda.is_available():
     device = torch.device("cuda")
     print("There are %d GPU(s) available." % torch.cuda.device_count())
@@ -99,7 +116,45 @@ app = FastAPI(
 @app.get("/")
 async def application_health():
     ic("GET /")
-    return {"msg": "This is AIDocks https://github.com/l4b4r4b4b4/ai-docks"}
+    return {"msg": "This is AIDocks https://github.com/Holocene Intelligence/ai-docks"}
+
+
+class DoraInput(BaseModel):
+    load_in_8bit: bool = False
+    batch_size: int = 64
+    max_input_length: int = 512
+    max_output_length: int = 512
+    epochs: int = 100
+    learning_rate: float = 0.001
+    base_model: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    datasets: List[str] = ["orca_dpo", "ultrafeedback", "openhermes"]
+
+
+@app.post("/dora")
+async def dora_endpoint(
+    request_body: DoraInput,
+    background_tasks: BackgroundTasks,
+):
+    load_in_8bit = request_body.load_in_8bit
+    learning_rate = request_body.learning_rate
+    base_model = request_body.base_model
+    batch_size = request_body.batch_size
+    max_input_length = request_body.max_input_length
+    max_output_length = request_body.max_output_length
+    epochs = request_body.epochs
+    background_tasks.add_task(
+        dora,
+        learning_rate,
+        load_in_8bit,
+        batch_size,
+        base_model,
+        max_input_length,
+        max_output_length,
+        epochs,
+        datasets,
+    )
+
+    return request_body
 
 
 class ModelType(str, Enum):
@@ -856,6 +911,7 @@ async def run_laser(request_body: LaserInput):
         modifier = ModelModifierBenchmark(base_model_name)
     elif mode.value == "perplexity":
         modifier = ModelModifierPerplexity(base_model_name, seqlen=seqlen)
+
     # TODO get max n layers from model config
     layer_numbers = list(range(request_body.top_k_layers, -1, -1))
     layer_numbers = [f".{l}." for l in layer_numbers]
